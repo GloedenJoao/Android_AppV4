@@ -404,7 +404,7 @@ fun SimulationScreen(viewModel: FinanceViewModel) {
     val today = remember { LocalDate.now() }
     var name by remember { mutableStateOf("") }
     var amount by remember { mutableStateOf("") }
-    var dateInput by remember { mutableStateOf("2024-12-13;2024-12-15..2024-12-20") }
+    var dateInput by remember { mutableStateOf("") }
     var type by remember { mutableStateOf(TransactionType.DEBIT) }
     var source by remember { mutableStateOf(AccountSource.CHECKING) }
     var destination by remember { mutableStateOf(AccountSource.CAIXINHAS) }

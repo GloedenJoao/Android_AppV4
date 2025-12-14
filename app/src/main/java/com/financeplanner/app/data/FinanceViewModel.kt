@@ -37,7 +37,7 @@ class FinanceViewModel : ViewModel() {
     var salary = SalaryConfig(amount = 5943.48, dayOfMonth = 25)
         private set
 
-    var creditCardConfig = CreditCardConfig(debt = 0.0, closingDay = 25)
+    var creditCardConfig = CreditCardConfig(nextInvoiceAmount = 0.0, closingDay = 25)
         private set
 
     private val simulatedTransactions = mutableListOf<TransactionEvent>()
@@ -66,8 +66,8 @@ class FinanceViewModel : ViewModel() {
         salary = salary.copy(amount = amount, dayOfMonth = dayOfMonth)
     }
 
-    fun updateCreditCard(debt: Double, closingDay: Int) {
-        creditCardConfig = creditCardConfig.copy(debt = debt, closingDay = closingDay)
+    fun updateCreditCard(nextInvoiceAmount: Double, closingDay: Int) {
+        creditCardConfig = creditCardConfig.copy(nextInvoiceAmount = nextInvoiceAmount, closingDay = closingDay)
     }
 
     fun addSimulatedTransaction(input: SimulatedTransactionInput) {
@@ -116,12 +116,12 @@ class FinanceViewModel : ViewModel() {
 
         // Credit card payment
         val cardDate = nextDateForDay(creditCardConfig.closingDay, start)
-        if (cardDate in start..end) {
+        if (creditCardConfig.nextInvoiceAmount > 0 && cardDate in start..end) {
             events.add(
                 TransactionEvent(
                     id = "card-${cardDate}",
-                    name = "Fechamento Cartão",
-                    amount = creditCardConfig.debt,
+                    name = "Pagamento fatura",
+                    amount = creditCardConfig.nextInvoiceAmount,
                     date = cardDate,
                     type = TransactionType.DEBIT,
                     source = AccountSource.CHECKING
@@ -163,7 +163,7 @@ class FinanceViewModel : ViewModel() {
         var checking = checkingAccount.balance
         var caixinhaTotal = caixinhas.sumOf { it.balance }
         var valeTotal = vales.sumOf { it.balance }
-        var cardDebt = -creditCardConfig.debt
+        var cardDebt = creditCardConfig.nextInvoiceAmount
 
         val allEvents = (upcomingStandardTransactions(range) + futureSimulations(range)).groupBy { it.date }
         val snapshots = mutableListOf<BalanceSnapshot>()
@@ -188,8 +188,8 @@ class FinanceViewModel : ViewModel() {
                         AccountSource.VALE -> valeTotal += event.amount
                     }
                 }
-                if (event.name.contains("Cartão")) {
-                    cardDebt += -event.amount
+                if (event.id.startsWith("card-")) {
+                    cardDebt = 0.0
                 }
             }
             snapshots.add(

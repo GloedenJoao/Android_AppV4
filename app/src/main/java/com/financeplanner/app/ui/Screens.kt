@@ -5,7 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -58,10 +57,6 @@ private val dateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/M
 
 @Composable
 fun HomeScreen(viewModel: FinanceViewModel) {
-    val today = remember { LocalDate.now() }
-    val balances = remember(today) {
-        viewModel.balances(today..today.plusDays(30))
-    }
     val caixinhaTotal = viewModel.caixinhas.sumOf { it.balance }
     val valeTotal = viewModel.vales.sumOf { it.balance }
     LazyColumn(
@@ -106,7 +101,7 @@ fun HomeScreen(viewModel: FinanceViewModel) {
                 SummaryCard(title = "Vales", value = valeTotal, modifier = Modifier.weight(1f))
                 SummaryCard(
                     title = "Cartão (dívida)",
-                    value = -viewModel.creditCardConfig.debt,
+                    value = -viewModel.creditCardConfig.nextInvoiceAmount,
                     highlightNegative = true,
                     modifier = Modifier.weight(1f)
                 )
@@ -119,13 +114,6 @@ fun HomeScreen(viewModel: FinanceViewModel) {
                 modifier = Modifier.fillMaxWidth()
             )
         }
-        item { Spacer(modifier = Modifier.height(4.dp)) }
-        item { Text("Próximos 30 dias", style = MaterialTheme.typography.titleMedium) }
-        item {
-            balances.firstOrNull()?.let {
-                DailyBalanceTable(balances)
-            }
-        }
     }
 }
 
@@ -134,7 +122,7 @@ fun InputsScreen(viewModel: FinanceViewModel) {
     var checkingText by remember { mutableStateOf(viewModel.checkingAccount.balance.toString()) }
     var salaryText by remember { mutableStateOf(viewModel.salary.amount.toString()) }
     var salaryDay by remember { mutableStateOf(viewModel.salary.dayOfMonth.toString()) }
-    var cardDebt by remember { mutableStateOf(viewModel.creditCardConfig.debt.toString()) }
+    var cardInvoice by remember { mutableStateOf(viewModel.creditCardConfig.nextInvoiceAmount.toString()) }
     var cardDay by remember { mutableStateOf(viewModel.creditCardConfig.closingDay.toString()) }
 
     LazyColumn(
@@ -224,11 +212,12 @@ fun InputsScreen(viewModel: FinanceViewModel) {
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     OutlinedTextField(
-                        value = cardDebt,
-                        onValueChange = { cardDebt = it },
-                        label = { Text("Dívida atual") },
+                        value = cardInvoice,
+                        onValueChange = { cardInvoice = it },
+                        label = { Text("Próxima fatura") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                        supportingText = { Text("Valor previsto para o próximo fechamento.") },
                         modifier = Modifier.weight(1f)
                     )
                     OutlinedTextField(
@@ -246,11 +235,11 @@ fun InputsScreen(viewModel: FinanceViewModel) {
                 ) {
                     Button(
                         onClick = {
-                            val debt = cardDebt.toDoubleOrNull()
+                            val invoice = cardInvoice.toDoubleOrNull()
                             val day = cardDay.toIntOrNull()
-                            if (debt != null && day != null) viewModel.updateCreditCard(debt, day)
+                            if (invoice != null && day != null) viewModel.updateCreditCard(invoice, day)
                         }
-                    ) { Text("Salvar cartão") }
+                    ) { Text("Salvar fatura") }
                 }
             }
         }
@@ -388,6 +377,8 @@ fun SimulationScreen(viewModel: FinanceViewModel) {
     val range = remember { today..today.plusDays(30) }
     val standardTransactions = remember(range) { viewModel.upcomingStandardTransactions(range) }
     val simulated = remember { mutableStateListOf(*viewModel.futureSimulations(range).toTypedArray()) }
+    val parsedDates = remember(dateInput) { parseDates(dateInput) }
+    val hasDateError = dateInput.isNotBlank() && parsedDates.isEmpty()
 
     LaunchedEffect(viewModel) {
         simulated.clear()
@@ -435,10 +426,30 @@ fun SimulationScreen(viewModel: FinanceViewModel) {
                     OutlinedTextField(
                         value = dateInput,
                         onValueChange = { dateInput = it },
-                        label = { Text("Datas (yyyy-MM-dd;início..fim)") },
+                        label = { Text("Datas e períodos") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                        supportingText = { Text("Separe datas com ';' e use '..' para intervalos.") },
+                        supportingText = {
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("Use ';' para separar datas únicas e '..' para intervalos.")
+                                Text("Exemplo: 2024-06-10..2024-06-12;2024-07-05..2024-07-07")
+                                if (hasDateError) {
+                                    Text(
+                                        "Nenhuma data válida encontrada.",
+                                        color = MaterialTheme.colorScheme.error,
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                } else if (parsedDates.isNotEmpty()) {
+                                    val preview = parsedDates.take(3).joinToString { it.toString() }
+                                    val extra = (parsedDates.size - parsedDates.take(3).size)
+                                    val suffix = if (extra > 0) " +$extra" else ""
+                                    Text(
+                                        "Serão aplicadas ${parsedDates.size} datas ($preview$suffix)",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                            }
+                        },
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -466,14 +477,13 @@ fun SimulationScreen(viewModel: FinanceViewModel) {
                 ) {
                     Button(
                         onClick = {
-                            val parsed = parseDates(dateInput)
                             val numeric = amount.toDoubleOrNull()
-                            if (name.isNotBlank() && numeric != null && parsed.isNotEmpty()) {
+                            if (name.isNotBlank() && numeric != null && parsedDates.isNotEmpty()) {
                                 viewModel.addSimulatedTransaction(
                                     SimulatedTransactionInput(
                                         name = name,
                                         amount = numeric,
-                                        dates = parsed,
+                                        dates = parsedDates,
                                         type = type,
                                         source = source,
                                         destination = if (type == TransactionType.DEBIT) destination else null
@@ -665,7 +675,7 @@ private fun DailyBalanceTable(history: List<BalanceSnapshot>) {
                 val checkingColor = if (snapshot.checking >= 0) Color(0xFF10B981) else MaterialTheme.colorScheme.error
                 val caixinhaColor = if (snapshot.caixinhaTotal >= 0) Color(0xFF10B981) else MaterialTheme.colorScheme.error
                 val valeColor = if (snapshot.valeTotal >= 0) Color(0xFF10B981) else MaterialTheme.colorScheme.error
-                val cardColor = if (snapshot.cardDebt <= 0) MaterialTheme.colorScheme.error else Color(0xFF10B981)
+                val cardColor = if (snapshot.cardDebt > 0) MaterialTheme.colorScheme.error else Color(0xFF10B981)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -676,7 +686,7 @@ private fun DailyBalanceTable(history: List<BalanceSnapshot>) {
                     Text(currencyFormat.format(snapshot.checking), modifier = Modifier.weight(1f), color = checkingColor, textAlign = TextAlign.End)
                     Text(currencyFormat.format(snapshot.caixinhaTotal), modifier = Modifier.weight(1f), color = caixinhaColor, textAlign = TextAlign.End)
                     Text(currencyFormat.format(snapshot.valeTotal), modifier = Modifier.weight(1f), color = valeColor, textAlign = TextAlign.End)
-                    Text(currencyFormat.format(snapshot.cardDebt), modifier = Modifier.weight(1f), color = cardColor, textAlign= TextAlign.End)
+                    Text(currencyFormat.format(-snapshot.cardDebt), modifier = Modifier.weight(1f), color = cardColor, textAlign = TextAlign.End)
                 }
                 if (index < history.lastIndex) {
                     Divider(color = MaterialTheme.colorScheme.surfaceVariant)

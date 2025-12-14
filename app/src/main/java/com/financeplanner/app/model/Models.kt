@@ -13,7 +13,7 @@ data class Vale(val id: String, val label: String, var balance: Double, var cred
 
 data class SalaryConfig(var amount: Double, var dayOfMonth: Int)
 
-data class CreditCardConfig(var debt: Double, var closingDay: Int)
+data class CreditCardConfig(var nextInvoiceAmount: Double, var closingDay: Int)
 
 data class TransactionEvent(
     val id: String,

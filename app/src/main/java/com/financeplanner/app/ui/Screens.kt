@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.align
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -166,10 +165,14 @@ fun InputsScreen(viewModel: FinanceViewModel) {
                     supportingText = { Text("Use ponto para separar centavos.") },
                     modifier = Modifier.fillMaxWidth()
                 )
-                Button(
-                    onClick = { checkingText.toDoubleOrNull()?.let(viewModel::updateCheckingBalance) },
-                    modifier = Modifier.align(Alignment.End)
-                ) { Text("Salvar") }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Button(onClick = { checkingText.toDoubleOrNull()?.let(viewModel::updateCheckingBalance) }) {
+                        Text("Salvar")
+                    }
+                }
             }
         }
         item { Text("Caixinhas CDB", style = MaterialTheme.typography.titleMedium) }
@@ -200,14 +203,18 @@ fun InputsScreen(viewModel: FinanceViewModel) {
                         modifier = Modifier.weight(1f)
                     )
                 }
-                Button(
-                    onClick = {
-                        val amount = salaryText.toDoubleOrNull()
-                        val day = salaryDay.toIntOrNull()
-                        if (amount != null && day != null) viewModel.updateSalary(amount, day)
-                    },
-                    modifier = Modifier.align(Alignment.End)
-                ) { Text("Salvar salário") }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Button(
+                        onClick = {
+                            val amount = salaryText.toDoubleOrNull()
+                            val day = salaryDay.toIntOrNull()
+                            if (amount != null && day != null) viewModel.updateSalary(amount, day)
+                        }
+                    ) { Text("Salvar salário") }
+                }
             }
         }
         item {
@@ -233,14 +240,18 @@ fun InputsScreen(viewModel: FinanceViewModel) {
                         modifier = Modifier.weight(1f)
                     )
                 }
-                Button(
-                    onClick = {
-                        val debt = cardDebt.toDoubleOrNull()
-                        val day = cardDay.toIntOrNull()
-                        if (debt != null && day != null) viewModel.updateCreditCard(debt, day)
-                    },
-                    modifier = Modifier.align(Alignment.End)
-                ) { Text("Salvar cartão") }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Button(
+                        onClick = {
+                            val debt = cardDebt.toDoubleOrNull()
+                            val day = cardDay.toIntOrNull()
+                            if (debt != null && day != null) viewModel.updateCreditCard(debt, day)
+                        }
+                    ) { Text("Salvar cartão") }
+                }
             }
         }
     }
@@ -273,17 +284,21 @@ private fun CaixinhaSection(viewModel: FinanceViewModel) {
                     modifier = Modifier.weight(1f)
                 )
             }
-            Button(
-                onClick = {
-                    val amount = balance.toDoubleOrNull()
-                    if (name.isNotBlank() && amount != null) {
-                        viewModel.addCaixinha(name, amount)
-                        name = ""
-                        balance = ""
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                Button(
+                    onClick = {
+                        val amount = balance.toDoubleOrNull()
+                        if (name.isNotBlank() && amount != null) {
+                            viewModel.addCaixinha(name, amount)
+                            name = ""
+                            balance = ""
+                        }
                     }
-                },
-                modifier = Modifier.align(Alignment.End)
-            ) { Text("Adicionar caixinha") }
+                ) { Text("Adicionar caixinha") }
+            }
         }
         viewModel.caixinhas.forEach { caixinha ->
             SummaryCard(title = caixinha.name, value = caixinha.balance, modifier = Modifier.fillMaxWidth()) {
@@ -340,17 +355,21 @@ private fun ValeSection(viewModel: FinanceViewModel) {
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
                     modifier = Modifier.fillMaxWidth()
                 )
-                Button(
-                    onClick = {
-                        val current = balance.toDoubleOrNull()
-                        val day = creditDay.toIntOrNull() ?: -1
-                        val valeAmount = amount.toDoubleOrNull()
-                        if (current != null && valeAmount != null) {
-                            viewModel.updateVale(vale.id, current, day, valeAmount)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Button(
+                        onClick = {
+                            val current = balance.toDoubleOrNull()
+                            val day = creditDay.toIntOrNull() ?: -1
+                            val valeAmount = amount.toDoubleOrNull()
+                            if (current != null && valeAmount != null) {
+                                viewModel.updateVale(vale.id, current, day, valeAmount)
+                            }
                         }
-                    },
-                    modifier = Modifier.align(Alignment.End)
-                ) { Text("Atualizar vale") }
+                    ) { Text("Atualizar vale") }
+                }
             }
         }
     }
@@ -441,29 +460,33 @@ fun SimulationScreen(viewModel: FinanceViewModel) {
                         FilterChip(selected = destination == AccountSource.CAIXINHAS, onClick = { destination = AccountSource.CAIXINHAS }, label = { Text("Caixinhas") })
                     }
                 }
-                Button(
-                    onClick = {
-                        val parsed = parseDates(dateInput)
-                        val numeric = amount.toDoubleOrNull()
-                        if (name.isNotBlank() && numeric != null && parsed.isNotEmpty()) {
-                            viewModel.addSimulatedTransaction(
-                                SimulatedTransactionInput(
-                                    name = name,
-                                    amount = numeric,
-                                    dates = parsed,
-                                    type = type,
-                                    source = source,
-                                    destination = if (type == TransactionType.DEBIT) destination else null
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Button(
+                        onClick = {
+                            val parsed = parseDates(dateInput)
+                            val numeric = amount.toDoubleOrNull()
+                            if (name.isNotBlank() && numeric != null && parsed.isNotEmpty()) {
+                                viewModel.addSimulatedTransaction(
+                                    SimulatedTransactionInput(
+                                        name = name,
+                                        amount = numeric,
+                                        dates = parsed,
+                                        type = type,
+                                        source = source,
+                                        destination = if (type == TransactionType.DEBIT) destination else null
+                                    )
                                 )
-                            )
-                            simulated.clear()
-                            simulated.addAll(viewModel.futureSimulations(range))
-                            name = ""
-                            amount = ""
+                                simulated.clear()
+                                simulated.addAll(viewModel.futureSimulations(range))
+                                name = ""
+                                amount = ""
+                            }
                         }
-                    },
-                    modifier = Modifier.align(Alignment.End)
-                ) { Text("Adicionar simulação") }
+                    ) { Text("Adicionar simulação") }
+                }
             }
         }
         item {
@@ -556,14 +579,18 @@ fun DashboardScreen(viewModel: FinanceViewModel) {
                         modifier = Modifier.weight(1f)
                     )
                 }
-                Button(
-                    onClick = {
-                        val start = runCatching { LocalDate.parse(startText) }.getOrNull()
-                        val end = runCatching { LocalDate.parse(endText) }.getOrNull()
-                        if (start != null && end != null) range = start..end
-                    },
-                    modifier = Modifier.align(Alignment.End)
-                ) { Text("Aplicar filtro") }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Button(
+                        onClick = {
+                            val start = runCatching { LocalDate.parse(startText) }.getOrNull()
+                            val end = runCatching { LocalDate.parse(endText) }.getOrNull()
+                            if (start != null && end != null) range = start..end
+                        }
+                    ) { Text("Aplicar filtro") }
+                }
             }
         }
         item { InsightsSection(insights) }

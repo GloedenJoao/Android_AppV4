@@ -230,6 +230,9 @@ class FinanceViewModel : ViewModel() {
         )
     }
 
+    fun nextSalaryDate(from: LocalDate = LocalDate.now()): LocalDate =
+        nextDateForDay(salary.dayOfMonth, from).adjustForWeekend()
+
     private fun nextDateForDay(day: Int, start: LocalDate): LocalDate {
         val candidate = start.withDayOfMonth(minOf(day, start.lengthOfMonth()))
         return if (!candidate.isBefore(start)) candidate else candidate.plusMonths(1).withDayOfMonth(minOf(day, candidate.plusMonths(1).lengthOfMonth()))

@@ -4,6 +4,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,20 +15,29 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDefaults
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DateRangePicker
 import androidx.compose.material3.Divider
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -53,7 +64,9 @@ import com.financeplanner.app.model.DashboardInsight
 import com.financeplanner.app.model.SimulatedTransactionInput
 import com.financeplanner.app.model.TransactionType
 import java.text.NumberFormat
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.launch
@@ -400,25 +413,108 @@ private fun ValeSection(viewModel: FinanceViewModel, onSaved: (String) -> Unit) 
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SimulationScreen(viewModel: FinanceViewModel) {
     val today = remember { LocalDate.now() }
     var name by remember { mutableStateOf("") }
     var amount by remember { mutableStateOf("") }
-    var dateInput by remember { mutableStateOf("") }
     var type by remember { mutableStateOf(TransactionType.DEBIT) }
-    var source by remember { mutableStateOf(AccountSource.CHECKING) }
-    var destination by remember { mutableStateOf(AccountSource.CAIXINHAS) }
+    val dateSelections = remember { mutableStateListOf<DateSelection>() }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showRangePicker by remember { mutableStateOf(false) }
+    var selectedSource by remember { mutableStateOf(SourceOption(AccountSource.CHECKING, "Conta Corrente")) }
+    var transferEnabled by remember { mutableStateOf(false) }
+    var transferDestination by remember { mutableStateOf<SourceOption?>(null) }
 
     val range = remember { today..today.plusDays(30) }
     val standardTransactions = remember(range) { viewModel.upcomingStandardTransactions(range) }
-    val simulated = remember { mutableStateListOf(*viewModel.futureSimulations(range).toTypedArray()) }
-    val parsedDates = remember(dateInput) { parseDates(dateInput) }
-    val hasDateError = dateInput.isNotBlank() && parsedDates.isEmpty()
+    val simulated = remember { mutableStateListOf(*viewModel.allSimulatedTransactions().toTypedArray()) }
+    val selectedDates = dateSelections.flatMap { it.dates() }.distinct().sorted()
+    val hasDateError = selectedDates.isEmpty()
+
+    val caixinhaOptions = viewModel.caixinhas.map { SourceOption(AccountSource.CAIXINHAS, "Caixinha: ${it.name}") }
+    val valeOptions = viewModel.vales.map { SourceOption(AccountSource.VALE, "Vale: ${it.label}") }
+    val sourceOptions = listOf(
+        SourceOption(AccountSource.CHECKING, "Conta Corrente"),
+        SourceOption(AccountSource.CREDIT_CARD, "Cartão de crédito")
+    ) + caixinhaOptions + valeOptions
+
+    val transferDestinations = when (selectedSource.source) {
+        AccountSource.CHECKING -> caixinhaOptions
+        AccountSource.CAIXINHAS -> listOf(SourceOption(AccountSource.CHECKING, "Conta Corrente"))
+        else -> emptyList()
+    }
+
+    if (selectedSource !in sourceOptions) {
+        selectedSource = sourceOptions.first()
+    }
+
+    if (transferDestination !in transferDestinations) {
+        transferDestination = transferDestinations.firstOrNull()
+    }
 
     LaunchedEffect(viewModel) {
         simulated.clear()
-        simulated.addAll(viewModel.futureSimulations(range))
+        simulated.addAll(viewModel.allSimulatedTransactions())
+    }
+
+    if (showDatePicker) {
+        val dateState = rememberDatePickerState(initialSelectedDateMillis = today.toEpochMillis())
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val selected = dateState.selectedDateMillis?.toLocalDate()
+                        if (selected != null) {
+                            dateSelections.add(SingleDateSelection(selected))
+                        }
+                        showDatePicker = false
+                    }
+                ) { Text("Adicionar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancelar") }
+            }
+        ) {
+            DatePicker(
+                state = dateState,
+                title = { Text("Escolha uma data") }
+            )
+        }
+    }
+
+    if (showRangePicker) {
+        val rangeState = rememberDateRangePickerState()
+        DatePickerDialog(
+            onDismissRequest = { showRangePicker = false },
+            colors = DatePickerDefaults.colors(),
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val start = rangeState.selectedStartDateMillis
+                        val end = rangeState.selectedEndDateMillis ?: start
+                        if (start != null && end != null) {
+                            val startDate = start.toLocalDate()
+                            val endDate = end.toLocalDate()
+                            val normalizedStart = minOf(startDate, endDate)
+                            val normalizedEnd = maxOf(startDate, endDate)
+                            dateSelections.add(RangeDateSelection(normalizedStart, normalizedEnd))
+                        }
+                        showRangePicker = false
+                    }
+                ) { Text("Adicionar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRangePicker = false }) { Text("Cancelar") }
+            }
+        ) {
+            DateRangePicker(
+                state = rangeState,
+                title = { Text("Selecione um período") }
+            )
+        }
     }
 
     LazyColumn(
@@ -432,7 +528,7 @@ fun SimulationScreen(viewModel: FinanceViewModel) {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("Simular transações", style = MaterialTheme.typography.headlineSmall)
                 Text(
-                    "Planeje movimentos futuros com campos legíveis e atalhos rápidos para escolher origem e destino.",
+                    "Planeje movimentos futuros com campos legíveis e atalhos rápidos para escolher origem.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -459,52 +555,102 @@ fun SimulationScreen(viewModel: FinanceViewModel) {
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                         modifier = Modifier.weight(1f)
                     )
-                    OutlinedTextField(
-                        value = dateInput,
-                        onValueChange = { dateInput = it },
-                        label = { Text("Datas e períodos") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                        supportingText = {
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text("Use ';' para separar datas únicas e '..' para intervalos.")
-                                Text("Exemplo: 2024-06-10..2024-06-12;2024-07-05..2024-07-07")
-                                if (hasDateError) {
-                                    Text(
-                                        "Nenhuma data válida encontrada.",
-                                        color = MaterialTheme.colorScheme.error,
-                                        style = MaterialTheme.typography.bodySmall
-                                    )
-                                } else if (parsedDates.isNotEmpty()) {
-                                    val preview = parsedDates.take(3).joinToString { it.toString() }
-                                    val extra = (parsedDates.size - parsedDates.take(3).size)
-                                    val suffix = if (extra > 0) " +$extra" else ""
-                                    Text(
-                                        "Serão aplicadas ${parsedDates.size} datas ($preview$suffix)",
-                                        style = MaterialTheme.typography.bodySmall
-                                    )
-                                }
-                            }
-                        },
-                        modifier = Modifier.weight(1f)
+                }
+                Text("Datas e períodos", style = MaterialTheme.typography.titleSmall)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        dateSelections.forEachIndexed { index, selection ->
+                            AssistChip(
+                                onClick = { dateSelections.removeAt(index) },
+                                label = { Text(selection.label()) },
+                                leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null) }
+                            )
+                        }
+                        if (dateSelections.isEmpty()) {
+                            Text(
+                                "Nenhuma data selecionada",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedButton(onClick = { showDatePicker = true }) { Text("Adicionar data") }
+                        OutlinedButton(onClick = { showRangePicker = true }) { Text("Adicionar período") }
+                    }
+                    val summaryText = if (selectedDates.isEmpty()) {
+                        "Selecione pelo menos uma data ou período para aplicar a transação."
+                    } else {
+                        val preview = selectedDates.take(3).joinToString { it.format(dateFormatter) }
+                        val extra = selectedDates.size - selectedDates.take(3).size
+                        val suffix = if (extra > 0) " +$extra" else ""
+                        "Serão aplicadas ${selectedDates.size} datas ($preview$suffix)"
+                    }
+                    Text(
+                        summaryText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (hasDateError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Text("Tipo", style = MaterialTheme.typography.titleSmall)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = type == TransactionType.DEBIT, onClick = { type = TransactionType.DEBIT }, label = { Text("Débito") })
-                    FilterChip(selected = type == TransactionType.CREDIT, onClick = { type = TransactionType.CREDIT }, label = { Text("Crédito") })
+                    FilterChip(selected = type == TransactionType.DEBIT, onClick = { type = TransactionType.DEBIT; transferEnabled = false }, label = { Text("Débito") })
+                    FilterChip(selected = type == TransactionType.CREDIT, onClick = { type = TransactionType.CREDIT; transferEnabled = false }, label = { Text("Crédito") })
                 }
                 Text("Origem", style = MaterialTheme.typography.titleSmall)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = source == AccountSource.CHECKING, onClick = { source = AccountSource.CHECKING }, label = { Text("Conta Corrente") })
-                    FilterChip(selected = source == AccountSource.CAIXINHAS, onClick = { source = AccountSource.CAIXINHAS }, label = { Text("Caixinhas") })
-                    FilterChip(selected = source == AccountSource.VALE, onClick = { source = AccountSource.VALE }, label = { Text("Vales") })
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    sourceOptions.forEach { option ->
+                        FilterChip(
+                            selected = selectedSource == option,
+                            onClick = {
+                                selectedSource = option
+                                if (transferEnabled && transferDestination !in transferDestinations) {
+                                    transferDestination = transferDestinations.firstOrNull()
+                                }
+                            },
+                            label = { Text(option.label) }
+                        )
+                    }
                 }
-                if (type == TransactionType.DEBIT) {
-                    Text("Destino (transferência opcional)", style = MaterialTheme.typography.titleSmall)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(selected = destination == AccountSource.CHECKING, onClick = { destination = AccountSource.CHECKING }, label = { Text("Conta Corrente") })
-                        FilterChip(selected = destination == AccountSource.CAIXINHAS, onClick = { destination = AccountSource.CAIXINHAS }, label = { Text("Caixinhas") })
+                Divider(modifier = Modifier.padding(vertical = 8.dp))
+                Text("Transferência entre contas", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "Ative para mover valores entre a conta corrente e uma caixinha CDB sem criar duas transações.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    FilterChip(
+                        selected = transferEnabled,
+                        onClick = {
+                            transferEnabled = !transferEnabled
+                            if (transferEnabled) {
+                                type = TransactionType.DEBIT
+                                if (transferDestination !in transferDestinations) {
+                                    transferDestination = transferDestinations.firstOrNull()
+                                }
+                            }
+                        },
+                        label = { Text("Transferir") }
+                    )
+                    if (transferEnabled && transferDestinations.isEmpty()) {
+                        Text(
+                            "Escolha uma origem compatível (conta ou caixinha) para liberar as opções de destino.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+                if (transferEnabled && transferDestinations.isNotEmpty()) {
+                    Text("Enviar para", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        transferDestinations.forEach { option ->
+                            FilterChip(
+                                selected = transferDestination == option,
+                                onClick = { transferDestination = option },
+                                label = { Text(option.label) }
+                            )
+                        }
                     }
                 }
                 Row(
@@ -514,19 +660,24 @@ fun SimulationScreen(viewModel: FinanceViewModel) {
                     Button(
                         onClick = {
                             val numeric = amount.toDoubleOrNull()
-                            if (name.isNotBlank() && numeric != null && parsedDates.isNotEmpty()) {
+                            val destinationReady = when {
+                                !transferEnabled -> true
+                                transferDestinations.isEmpty() -> false
+                                else -> transferDestination != null
+                            }
+                            if (name.isNotBlank() && numeric != null && selectedDates.isNotEmpty() && destinationReady) {
                                 viewModel.addSimulatedTransaction(
                                     SimulatedTransactionInput(
                                         name = name,
                                         amount = numeric,
-                                        dates = parsedDates,
-                                        type = type,
-                                        source = source,
-                                        destination = if (type == TransactionType.DEBIT) destination else null
+                                        dates = selectedDates,
+                                        type = if (transferEnabled) TransactionType.DEBIT else type,
+                                        source = selectedSource.source,
+                                        destination = if (transferEnabled) transferDestination?.source else null
                                     )
                                 )
                                 simulated.clear()
-                                simulated.addAll(viewModel.futureSimulations(range))
+                                simulated.addAll(viewModel.allSimulatedTransactions())
                                 name = ""
                                 amount = ""
                             }
@@ -793,25 +944,33 @@ private fun LineChart(data: List<Pair<LocalDate, Double>>) {
     }
 }
 
-private fun parseDates(raw: String): List<LocalDate> {
-    fun String.toLocalDateOrNull(): LocalDate? = runCatching { LocalDate.parse(this) }.getOrNull()
-    val parts = raw.split(";").map { it.trim() }.filter { it.isNotEmpty() }
-    val dates = mutableListOf<LocalDate>()
-    parts.forEach { part ->
-        if (part.contains("..")) {
-            val rangeParts = part.split("..")
-            val start: LocalDate? = rangeParts[0].toLocalDateOrNull()
-            val end: LocalDate? = rangeParts.getOrElse(1) { rangeParts[0] }.toLocalDateOrNull()
-            if (start != null && end != null) {
-                var date: LocalDate = start
-                while (!date.isAfter(end)) {
-                    dates.add(date)
-                    date = date.plusDays(1)
-                }
-            }
-        } else {
-            part.toLocalDateOrNull()?.let(dates::add)
-        }
-    }
-    return dates.distinct().sorted()
+private data class SourceOption(val source: AccountSource, val label: String)
+
+private sealed class DateSelection {
+    abstract fun dates(): List<LocalDate>
+    abstract fun label(): String
 }
+
+private data class SingleDateSelection(val date: LocalDate) : DateSelection() {
+    override fun dates(): List<LocalDate> = listOf(date)
+
+    override fun label(): String = date.format(dateFormatter)
+}
+
+private data class RangeDateSelection(val start: LocalDate, val end: LocalDate) : DateSelection() {
+    override fun dates(): List<LocalDate> {
+        val dates = mutableListOf<LocalDate>()
+        var pointer = start
+        while (!pointer.isAfter(end)) {
+            dates.add(pointer)
+            pointer = pointer.plusDays(1)
+        }
+        return dates
+    }
+
+    override fun label(): String = "${start.format(dateFormatter)} - ${end.format(dateFormatter)}"
+}
+
+private fun Long.toLocalDate(): LocalDate = Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()).toLocalDate()
+
+private fun LocalDate.toEpochMillis(): Long = atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()

@@ -154,6 +154,8 @@ class FinanceViewModel : ViewModel() {
     fun futureSimulations(range: ClosedRange<LocalDate>): List<TransactionEvent> =
         simulatedTransactions.filter { it.date in range.start..range.endInclusive }.sortedBy { it.date }
 
+    fun allSimulatedTransactions(): List<TransactionEvent> = simulatedTransactions.sortedBy { it.date }
+
     fun balances(range: ClosedRange<LocalDate>): List<BalanceSnapshot> {
         val start = range.start
         val end = range.endInclusive
@@ -177,12 +179,16 @@ class FinanceViewModel : ViewModel() {
                     AccountSource.VALE -> {
                         valeTotal += if (event.type == TransactionType.CREDIT) event.amount else -event.amount
                     }
+                    AccountSource.CREDIT_CARD -> {
+                        cardDebt += if (event.type == TransactionType.DEBIT) event.amount else -event.amount
+                    }
                 }
                 if (event.destination != null && event.type == TransactionType.DEBIT) {
                     when (event.destination) {
                         AccountSource.CHECKING -> checking += event.amount
                         AccountSource.CAIXINHAS -> caixinhaTotal += event.amount
                         AccountSource.VALE -> valeTotal += event.amount
+                        AccountSource.CREDIT_CARD -> cardDebt += event.amount
                     }
                 }
                 if (event.id.startsWith("card-")) {

@@ -424,6 +424,8 @@ fun SimulationScreen(viewModel: FinanceViewModel) {
     var showDatePicker by remember { mutableStateOf(false) }
     var showRangePicker by remember { mutableStateOf(false) }
     var selectedSource by remember { mutableStateOf(SourceOption(AccountSource.CHECKING, "Conta Corrente")) }
+    var transferEnabled by remember { mutableStateOf(false) }
+    var transferDestination by remember { mutableStateOf<SourceOption?>(null) }
 
     val range = remember { today..today.plusDays(30) }
     val standardTransactions = remember(range) { viewModel.upcomingStandardTransactions(range) }
@@ -438,8 +440,18 @@ fun SimulationScreen(viewModel: FinanceViewModel) {
         SourceOption(AccountSource.CREDIT_CARD, "Cartão de crédito")
     ) + caixinhaOptions + valeOptions
 
+    val transferDestinations = when (selectedSource.source) {
+        AccountSource.CHECKING -> caixinhaOptions
+        AccountSource.CAIXINHAS -> listOf(SourceOption(AccountSource.CHECKING, "Conta Corrente"))
+        else -> emptyList()
+    }
+
     if (selectedSource !in sourceOptions) {
         selectedSource = sourceOptions.first()
+    }
+
+    if (transferDestination !in transferDestinations) {
+        transferDestination = transferDestinations.firstOrNull()
     }
 
     LaunchedEffect(viewModel) {
@@ -582,17 +594,63 @@ fun SimulationScreen(viewModel: FinanceViewModel) {
                 }
                 Text("Tipo", style = MaterialTheme.typography.titleSmall)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = type == TransactionType.DEBIT, onClick = { type = TransactionType.DEBIT }, label = { Text("Débito") })
-                    FilterChip(selected = type == TransactionType.CREDIT, onClick = { type = TransactionType.CREDIT }, label = { Text("Crédito") })
+                    FilterChip(selected = type == TransactionType.DEBIT, onClick = { type = TransactionType.DEBIT; transferEnabled = false }, label = { Text("Débito") })
+                    FilterChip(selected = type == TransactionType.CREDIT, onClick = { type = TransactionType.CREDIT; transferEnabled = false }, label = { Text("Crédito") })
                 }
                 Text("Origem", style = MaterialTheme.typography.titleSmall)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     sourceOptions.forEach { option ->
                         FilterChip(
                             selected = selectedSource == option,
-                            onClick = { selectedSource = option },
+                            onClick = {
+                                selectedSource = option
+                                if (transferEnabled && transferDestination !in transferDestinations) {
+                                    transferDestination = transferDestinations.firstOrNull()
+                                }
+                            },
                             label = { Text(option.label) }
                         )
+                    }
+                }
+                Divider(modifier = Modifier.padding(vertical = 8.dp))
+                Text("Transferência entre contas", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "Ative para mover valores entre a conta corrente e uma caixinha CDB sem criar duas transações.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    FilterChip(
+                        selected = transferEnabled,
+                        onClick = {
+                            transferEnabled = !transferEnabled
+                            if (transferEnabled) {
+                                type = TransactionType.DEBIT
+                                if (transferDestination !in transferDestinations) {
+                                    transferDestination = transferDestinations.firstOrNull()
+                                }
+                            }
+                        },
+                        label = { Text("Transferir") }
+                    )
+                    if (transferEnabled && transferDestinations.isEmpty()) {
+                        Text(
+                            "Escolha uma origem compatível (conta ou caixinha) para liberar as opções de destino.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+                if (transferEnabled && transferDestinations.isNotEmpty()) {
+                    Text("Enviar para", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        transferDestinations.forEach { option ->
+                            FilterChip(
+                                selected = transferDestination == option,
+                                onClick = { transferDestination = option },
+                                label = { Text(option.label) }
+                            )
+                        }
                     }
                 }
                 Row(
@@ -602,14 +660,20 @@ fun SimulationScreen(viewModel: FinanceViewModel) {
                     Button(
                         onClick = {
                             val numeric = amount.toDoubleOrNull()
-                            if (name.isNotBlank() && numeric != null && selectedDates.isNotEmpty()) {
+                            val destinationReady = when {
+                                !transferEnabled -> true
+                                transferDestinations.isEmpty() -> false
+                                else -> transferDestination != null
+                            }
+                            if (name.isNotBlank() && numeric != null && selectedDates.isNotEmpty() && destinationReady) {
                                 viewModel.addSimulatedTransaction(
                                     SimulatedTransactionInput(
                                         name = name,
                                         amount = numeric,
                                         dates = selectedDates,
-                                        type = type,
-                                        source = selectedSource.source
+                                        type = if (transferEnabled) TransactionType.DEBIT else type,
+                                        source = selectedSource.source,
+                                        destination = if (transferEnabled) transferDestination?.source else null
                                     )
                                 )
                                 simulated.clear()

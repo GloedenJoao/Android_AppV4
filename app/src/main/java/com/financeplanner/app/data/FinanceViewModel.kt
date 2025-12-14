@@ -154,6 +154,8 @@ class FinanceViewModel : ViewModel() {
     fun futureSimulations(range: ClosedRange<LocalDate>): List<TransactionEvent> =
         simulatedTransactions.filter { it.date in range.start..range.endInclusive }.sortedBy { it.date }
 
+    fun allSimulatedTransactions(): List<TransactionEvent> = simulatedTransactions.sortedBy { it.date }
+
     fun balances(range: ClosedRange<LocalDate>): List<BalanceSnapshot> {
         val start = range.start
         val end = range.endInclusive

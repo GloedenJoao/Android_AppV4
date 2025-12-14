@@ -429,7 +429,7 @@ fun SimulationScreen(viewModel: FinanceViewModel) {
 
     val range = remember { today..today.plusDays(30) }
     val standardTransactions = remember(range) { viewModel.upcomingStandardTransactions(range) }
-    val simulated = remember { mutableStateListOf(*viewModel.futureSimulations(range).toTypedArray()) }
+    val simulated = remember { mutableStateListOf(*viewModel.allSimulatedTransactions().toTypedArray()) }
     val selectedDates = dateSelections.flatMap { it.dates() }.distinct().sorted()
     val hasDateError = selectedDates.isEmpty()
 
@@ -456,7 +456,7 @@ fun SimulationScreen(viewModel: FinanceViewModel) {
 
     LaunchedEffect(viewModel) {
         simulated.clear()
-        simulated.addAll(viewModel.futureSimulations(range))
+        simulated.addAll(viewModel.allSimulatedTransactions())
     }
 
     if (showDatePicker) {
@@ -677,7 +677,7 @@ fun SimulationScreen(viewModel: FinanceViewModel) {
                                     )
                                 )
                                 simulated.clear()
-                                simulated.addAll(viewModel.futureSimulations(range))
+                                simulated.addAll(viewModel.allSimulatedTransactions())
                                 name = ""
                                 amount = ""
                             }

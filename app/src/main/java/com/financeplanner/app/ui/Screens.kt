@@ -2,6 +2,7 @@ package com.financeplanner.app.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -20,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Assessment
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Input
 import androidx.compose.material.icons.outlined.PlaylistAdd
@@ -64,10 +66,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.financeplanner.app.data.FinanceViewModel
 import com.financeplanner.app.model.AccountSource
@@ -771,14 +775,24 @@ fun SimulationScreen(viewModel: FinanceViewModel) {
             }
         }
         item {
-            SummaryCard(title = "Futuras transações padrão", modifier = Modifier.fillMaxWidth()) {
+            SummaryCard(
+                title = "Futuras transações padrão",
+                modifier = Modifier.fillMaxWidth(),
+                collapsible = true,
+                initiallyExpanded = false
+            ) {
                 standardTransactions.forEach { event ->
                     TransactionRow(title = event.name, subtitle = event.date.format(dateFormatter), amount = event.amount, positive = event.type == TransactionType.CREDIT)
                 }
             }
         }
         item {
-            SummaryCard(title = "Transações simuladas", modifier = Modifier.fillMaxWidth()) {
+            SummaryCard(
+                title = "Transações simuladas",
+                modifier = Modifier.fillMaxWidth(),
+                collapsible = true,
+                initiallyExpanded = false
+            ) {
                 if (simulated.isEmpty()) {
                     Text("Nenhuma simulação adicionada")
                 }
@@ -887,8 +901,15 @@ private fun SummaryCard(
     value: Double? = null,
     highlightNegative: Boolean = false,
     modifier: Modifier = Modifier,
+    collapsible: Boolean = false,
+    initiallyExpanded: Boolean = true,
     content: @Composable (() -> Unit)? = null
 ) {
+    val hasContent = content != null
+    val canToggle = collapsible && hasContent
+    val startExpanded = if (canToggle) initiallyExpanded else true
+    var expanded by remember { mutableStateOf(startExpanded) }
+
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(16.dp),
@@ -896,14 +917,37 @@ private fun SummaryCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            value?.let {
-                val color = if (it < 0 || highlightNegative) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-                Text(currencyFormat.format(it), color = color, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.headlineSmall)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .let { if (canToggle) it.clickable { expanded = !expanded } else it },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(title, style = MaterialTheme.typography.titleMedium)
+                    value?.let {
+                        val color = if (it < 0 || highlightNegative) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                        Text(
+                            currencyFormat.format(it),
+                            color = color,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.headlineSmall
+                        )
+                    }
+                }
+                if (canToggle) {
+                    val rotation = if (expanded) 0f else -90f
+                    Icon(
+                        imageVector = Icons.Outlined.ExpandMore,
+                        contentDescription = if (expanded) "Recolher" else "Expandir",
+                        modifier = Modifier.rotate(rotation),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
-            if (content != null) {
+            if (hasContent && expanded) {
                 Divider(color = MaterialTheme.colorScheme.surfaceVariant)
-                content()
+                content?.invoke()
             }
         }
     }
@@ -926,17 +970,25 @@ private fun TransactionRow(title: String, subtitle: String, amount: Double, posi
 
 @Composable
 private fun DailyBalanceTable(history: List<BalanceSnapshot>) {
+    val dateWeight = 1.2f
+    val valueWeight = 1f
+    val headerStyle = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold, fontFeatureSettings = "tnum")
+    val numericStyle = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum", textAlign = TextAlign.End)
+
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp)),
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Dia", fontWeight = FontWeight.Bold)
-                Text("CC", textAlign = TextAlign.End, modifier = Modifier.weight(1f))
-                Text("Caixinhas", textAlign = TextAlign.End, modifier = Modifier.weight(1f))
-                Text("Vales", textAlign = TextAlign.End, modifier = Modifier.weight(1f))
-                Text("Cartão", textAlign = TextAlign.End, modifier = Modifier.weight(1f))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Dia", modifier = Modifier.weight(dateWeight), style = headerStyle, maxLines = 1, softWrap = false)
+                Text("CC", modifier = Modifier.weight(valueWeight), style = headerStyle, textAlign = TextAlign.End, maxLines = 1, softWrap = false)
+                Text("Caixinhas", modifier = Modifier.weight(valueWeight), style = headerStyle, textAlign = TextAlign.End, maxLines = 1, softWrap = false)
+                Text("Vales", modifier = Modifier.weight(valueWeight), style = headerStyle, textAlign = TextAlign.End, maxLines = 1, softWrap = false)
+                Text("Cartão", modifier = Modifier.weight(valueWeight), style = headerStyle, textAlign = TextAlign.End, maxLines = 1, softWrap = false)
             }
             Divider(color = MaterialTheme.colorScheme.surfaceVariant)
             history.forEachIndexed { index, snapshot ->
@@ -948,13 +1000,52 @@ private fun DailyBalanceTable(history: List<BalanceSnapshot>) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(snapshot.date.format(dateFormatter), modifier = Modifier.weight(1f))
-                    Text(currencyFormat.format(snapshot.checking), modifier = Modifier.weight(1f), color = checkingColor, textAlign = TextAlign.End)
-                    Text(currencyFormat.format(snapshot.caixinhaTotal), modifier = Modifier.weight(1f), color = caixinhaColor, textAlign = TextAlign.End)
-                    Text(currencyFormat.format(snapshot.valeTotal), modifier = Modifier.weight(1f), color = valeColor, textAlign = TextAlign.End)
-                    Text(currencyFormat.format(-snapshot.cardDebt), modifier = Modifier.weight(1f), color = cardColor, textAlign = TextAlign.End)
+                    Text(
+                        snapshot.date.format(dateFormatter),
+                        modifier = Modifier.weight(dateWeight),
+                        style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                    Text(
+                        currencyFormat.format(snapshot.checking),
+                        modifier = Modifier.weight(valueWeight),
+                        color = checkingColor,
+                        style = numericStyle,
+                        maxLines = 1,
+                        overflow = TextOverflow.Clip,
+                        softWrap = false
+                    )
+                    Text(
+                        currencyFormat.format(snapshot.caixinhaTotal),
+                        modifier = Modifier.weight(valueWeight),
+                        color = caixinhaColor,
+                        style = numericStyle,
+                        maxLines = 1,
+                        overflow = TextOverflow.Clip,
+                        softWrap = false
+                    )
+                    Text(
+                        currencyFormat.format(snapshot.valeTotal),
+                        modifier = Modifier.weight(valueWeight),
+                        color = valeColor,
+                        style = numericStyle,
+                        maxLines = 1,
+                        overflow = TextOverflow.Clip,
+                        softWrap = false
+                    )
+                    Text(
+                        currencyFormat.format(-snapshot.cardDebt),
+                        modifier = Modifier.weight(valueWeight),
+                        color = cardColor,
+                        style = numericStyle,
+                        maxLines = 1,
+                        overflow = TextOverflow.Clip,
+                        softWrap = false
+                    )
                 }
                 if (index < history.lastIndex) {
                     Divider(color = MaterialTheme.colorScheme.surfaceVariant)

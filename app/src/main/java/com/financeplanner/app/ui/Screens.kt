@@ -947,7 +947,7 @@ private fun SummaryCard(
             }
             if (hasContent && expanded) {
                 Divider(color = MaterialTheme.colorScheme.surfaceVariant)
-                content()
+                content?.invoke()
             }
         }
     }

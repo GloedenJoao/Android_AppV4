@@ -19,25 +19,25 @@ import java.time.temporal.TemporalAdjusters
 import java.util.UUID
 
 class FinanceViewModel : ViewModel() {
-    var checkingAccount = CheckingAccount(balance = 4200.0)
+    var checkingAccount = CheckingAccount(balance = 0.0)
         private set
 
     var caixinhas = mutableListOf(
-        Caixinha(id = UUID.randomUUID().toString(), name = "Viagem", balance = 800.0),
-        Caixinha(id = UUID.randomUUID().toString(), name = "Aluguel", balance = 1200.0)
+        Caixinha(id = UUID.randomUUID().toString(), name = "Viagem", balance = 0.0),
+        Caixinha(id = UUID.randomUUID().toString(), name = "Aluguel", balance = 0.0)
     )
         private set
 
     var vales = mutableListOf(
-        Vale(id = UUID.randomUUID().toString(), label = "Vale Refeição", balance = 1173.26, creditDay = -1, amount = 1173.26),
-        Vale(id = UUID.randomUUID().toString(), label = "Vale Alimentação", balance = 924.47, creditDay = -1, amount = 924.47)
+        Vale(id = UUID.randomUUID().toString(), label = "Vale Refeição", balance = 465.08, creditDay = -1, amount = 1173.26),
+        Vale(id = UUID.randomUUID().toString(), label = "Vale Alimentação", balance = 752.31, creditDay = -1, amount = 924.47)
     )
         private set
 
-    var salary = SalaryConfig(amount = 12000.0, dayOfMonth = 5)
+    var salary = SalaryConfig(amount = 5943.48, dayOfMonth = 25)
         private set
 
-    var creditCardConfig = CreditCardConfig(debt = 2500.0, closingDay = 12)
+    var creditCardConfig = CreditCardConfig(debt = 0.0, closingDay = 25)
         private set
 
     private val simulatedTransactions = mutableListOf<TransactionEvent>()

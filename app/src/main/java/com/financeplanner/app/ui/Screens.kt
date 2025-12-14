@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package com.financeplanner.app.ui
 
 import androidx.compose.foundation.Canvas
@@ -886,7 +888,7 @@ fun DashboardScreen(viewModel: FinanceViewModel) {
         }
     }
     if (showPicker) {
-        DateRangePickerDialog(
+        DatePickerDialog(
             onDismissRequest = { showPicker = false },
             confirmButton = {
                 TextButton(
@@ -906,16 +908,7 @@ fun DashboardScreen(viewModel: FinanceViewModel) {
         ) {
             DateRangePicker(
                 state = dateRangeState,
-                title = { Text("Selecione o período") },
-                dateFormatter = DatePickerDefaults.dateFormatter(
-                    yearSelectionFormatter = { dateFormatter.format(it.toLocalDate()) },
-                    selectedDateDescriptionFormatter = { dateFormatter.format(it.toLocalDate()) },
-                    selectedDateRangeDescriptionFormatter = { start, end ->
-                        val startText = start?.toLocalDate()?.let { dateFormatter.format(it) } ?: "--"
-                        val endText = end?.toLocalDate()?.let { dateFormatter.format(it) } ?: "--"
-                        "$startText até $endText"
-                    }
-                )
+                title = { Text("Selecione o período") }
             )
         }
     }

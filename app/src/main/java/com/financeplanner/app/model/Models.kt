@@ -42,7 +42,7 @@ data class BalanceSnapshot(
     val cardDebt: Double
 )
 
-enum class AccountSource { CHECKING, CAIXINHAS, VALE }
+enum class AccountSource { CHECKING, CAIXINHAS, VALE, CREDIT_CARD }
 
 data class DashboardInsight(
     val label: String,

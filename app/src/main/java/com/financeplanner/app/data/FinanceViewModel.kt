@@ -22,10 +22,7 @@ class FinanceViewModel : ViewModel() {
     var checkingAccount = CheckingAccount(balance = 0.0)
         private set
 
-    var caixinhas = mutableListOf(
-        Caixinha(id = UUID.randomUUID().toString(), name = "Viagem", balance = 0.0),
-        Caixinha(id = UUID.randomUUID().toString(), name = "Aluguel", balance = 0.0)
-    )
+    var caixinhas = mutableListOf<Caixinha>()
         private set
 
     var vales = mutableListOf(

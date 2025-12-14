@@ -278,6 +278,7 @@ fun InputsScreen(viewModel: FinanceViewModel) {
         }
     }
 }
+}
 
 @Composable
 private fun CaixinhaSection(viewModel: FinanceViewModel, onSaved: (String) -> Unit) {

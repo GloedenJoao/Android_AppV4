@@ -17,11 +17,14 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.surfaceColorAtElevation
@@ -31,11 +34,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.font.FontWeight
@@ -51,9 +56,13 @@ import java.text.NumberFormat
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 private val currencyFormat: NumberFormat = NumberFormat.getCurrencyInstance(Locale("pt", "BR"))
 private val dateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM")
+
+private fun Double.toInputText(): String = if (this == 0.0) "" else this.toString()
+private fun Int.toInputText(): String = if (this <= 0) "" else this.toString()
 
 @Composable
 fun HomeScreen(viewModel: FinanceViewModel) {
@@ -119,19 +128,30 @@ fun HomeScreen(viewModel: FinanceViewModel) {
 
 @Composable
 fun InputsScreen(viewModel: FinanceViewModel) {
-    var checkingText by remember { mutableStateOf(viewModel.checkingAccount.balance.toString()) }
-    var salaryText by remember { mutableStateOf(viewModel.salary.amount.toString()) }
-    var salaryDay by remember { mutableStateOf(viewModel.salary.dayOfMonth.toString()) }
-    var cardInvoice by remember { mutableStateOf(viewModel.creditCardConfig.nextInvoiceAmount.toString()) }
-    var cardDay by remember { mutableStateOf(viewModel.creditCardConfig.closingDay.toString()) }
+    val focusManager = LocalFocusManager.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
+    var checkingText by remember { mutableStateOf(viewModel.checkingAccount.balance.toInputText()) }
+    var salaryText by remember { mutableStateOf(viewModel.salary.amount.toInputText()) }
+    var salaryDay by remember { mutableStateOf(viewModel.salary.dayOfMonth.toInputText()) }
+    var cardInvoice by remember { mutableStateOf(viewModel.creditCardConfig.nextInvoiceAmount.toInputText()) }
+    var cardDay by remember { mutableStateOf(viewModel.creditCardConfig.closingDay.toInputText()) }
+
+    val showSavedMessage: (String) -> Unit = { message ->
+        focusManager.clearFocus(force = true)
+        coroutineScope.launch { snackbarHostState.showSnackbar(message) }
+    }
+
+    Scaffold(snackbarHost = { SnackbarHost(hostState = snackbarHostState) }) { innerPadding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(innerPadding)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("Configurações financeiras", style = MaterialTheme.typography.headlineSmall)
@@ -149,7 +169,7 @@ fun InputsScreen(viewModel: FinanceViewModel) {
                     onValueChange = { checkingText = it },
                     label = { Text("Saldo atual") },
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
                     supportingText = { Text("Use ponto para separar centavos.") },
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -157,16 +177,23 @@ fun InputsScreen(viewModel: FinanceViewModel) {
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
                 ) {
-                    Button(onClick = { checkingText.toDoubleOrNull()?.let(viewModel::updateCheckingBalance) }) {
+                    Button(
+                        onClick = {
+                            checkingText.toDoubleOrNull()?.let {
+                                viewModel.updateCheckingBalance(it)
+                                showSavedMessage("Saldo atualizado")
+                            }
+                        }
+                    ) {
                         Text("Salvar")
                     }
                 }
             }
         }
         item { Text("Caixinhas CDB", style = MaterialTheme.typography.titleMedium) }
-        item { CaixinhaSection(viewModel) }
+        item { CaixinhaSection(viewModel, onSaved = { showSavedMessage(it) }) }
         item { Text("Vales", style = MaterialTheme.typography.titleMedium) }
-        item { ValeSection(viewModel) }
+        item { ValeSection(viewModel, onSaved = { showSavedMessage(it) }) }
         item { Text("Movimentações Padrão", style = MaterialTheme.typography.titleMedium) }
         item {
             SummaryCard(title = "Salário", modifier = Modifier.fillMaxWidth()) {
@@ -179,7 +206,7 @@ fun InputsScreen(viewModel: FinanceViewModel) {
                         onValueChange = { salaryText = it },
                         label = { Text("Valor") },
                         singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                         modifier = Modifier.weight(1f)
                     )
                     OutlinedTextField(
@@ -187,7 +214,7 @@ fun InputsScreen(viewModel: FinanceViewModel) {
                         onValueChange = { salaryDay = it },
                         label = { Text("Dia do mês") },
                         singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -199,7 +226,10 @@ fun InputsScreen(viewModel: FinanceViewModel) {
                         onClick = {
                             val amount = salaryText.toDoubleOrNull()
                             val day = salaryDay.toIntOrNull()
-                            if (amount != null && day != null) viewModel.updateSalary(amount, day)
+                            if (amount != null && day != null) {
+                                viewModel.updateSalary(amount, day)
+                                showSavedMessage("Salário atualizado")
+                            }
                         }
                     ) { Text("Salvar salário") }
                 }
@@ -216,7 +246,7 @@ fun InputsScreen(viewModel: FinanceViewModel) {
                         onValueChange = { cardInvoice = it },
                         label = { Text("Próxima fatura") },
                         singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                         supportingText = { Text("Valor previsto para o próximo fechamento.") },
                         modifier = Modifier.weight(1f)
                     )
@@ -225,7 +255,7 @@ fun InputsScreen(viewModel: FinanceViewModel) {
                         onValueChange = { cardDay = it },
                         label = { Text("Dia fechamento") },
                         singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -237,7 +267,10 @@ fun InputsScreen(viewModel: FinanceViewModel) {
                         onClick = {
                             val invoice = cardInvoice.toDoubleOrNull()
                             val day = cardDay.toIntOrNull()
-                            if (invoice != null && day != null) viewModel.updateCreditCard(invoice, day)
+                            if (invoice != null && day != null) {
+                                viewModel.updateCreditCard(invoice, day)
+                                showSavedMessage("Fatura atualizada")
+                            }
                         }
                     ) { Text("Salvar fatura") }
                 }
@@ -247,7 +280,7 @@ fun InputsScreen(viewModel: FinanceViewModel) {
 }
 
 @Composable
-private fun CaixinhaSection(viewModel: FinanceViewModel) {
+private fun CaixinhaSection(viewModel: FinanceViewModel, onSaved: (String) -> Unit) {
     var name by remember { mutableStateOf("") }
     var balance by remember { mutableStateOf("") }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -284,6 +317,7 @@ private fun CaixinhaSection(viewModel: FinanceViewModel) {
                             viewModel.addCaixinha(name, amount)
                             name = ""
                             balance = ""
+                            onSaved("Caixinha adicionada")
                         }
                     }
                 ) { Text("Adicionar caixinha") }
@@ -308,12 +342,12 @@ private fun CaixinhaSection(viewModel: FinanceViewModel) {
 }
 
 @Composable
-private fun ValeSection(viewModel: FinanceViewModel) {
+private fun ValeSection(viewModel: FinanceViewModel, onSaved: (String) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         viewModel.vales.forEach { vale ->
-            var balance by remember(vale.id) { mutableStateOf(vale.balance.toString()) }
+            var balance by remember(vale.id) { mutableStateOf(vale.balance.toInputText()) }
             var creditDay by remember(vale.id) { mutableStateOf(if (vale.creditDay == -1) "" else vale.creditDay.toString()) }
-            var amount by remember(vale.id) { mutableStateOf(vale.amount.toString()) }
+            var amount by remember(vale.id) { mutableStateOf(vale.amount.toInputText()) }
             SummaryCard(title = vale.label, modifier = Modifier.fillMaxWidth()) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -355,6 +389,7 @@ private fun ValeSection(viewModel: FinanceViewModel) {
                             val valeAmount = amount.toDoubleOrNull()
                             if (current != null && valeAmount != null) {
                                 viewModel.updateVale(vale.id, current, day, valeAmount)
+                                onSaved("Vale atualizado")
                             }
                         }
                     ) { Text("Atualizar vale") }

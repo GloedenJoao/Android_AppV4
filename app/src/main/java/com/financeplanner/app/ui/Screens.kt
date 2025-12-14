@@ -417,14 +417,15 @@ private fun BandChart(data: List<Pair<LocalDate, Double>>) {
     val max = data.maxOf { it.second }
     val min = data.minOf { it.second }
     val span = (max - min).takeIf { it != 0.0 } ?: 1.0
+    val pointColor = MaterialTheme.colorScheme.primary
     Card(modifier = Modifier.fillMaxWidth()) {
         Canvas(modifier = Modifier.height(140.dp)) {
             val widthStep = size.width / (data.size - 1).coerceAtLeast(1)
             data.forEachIndexed { index, pair ->
                 val x = widthStep * index
-                val normalized = (pair.second - min) / span
+                val normalized = ((pair.second - min) / span).toFloat()
                 val y = size.height - (normalized * size.height)
-                drawCircle(color = MaterialTheme.colorScheme.primary, radius = 6f, center = androidx.compose.ui.geometry.Offset(x, y))
+                drawCircle(color = pointColor, radius = 6f, center = androidx.compose.ui.geometry.Offset(x, y))
             }
         }
     }
@@ -436,17 +437,18 @@ private fun LineChart(data: List<Pair<LocalDate, Double>>) {
     val max = data.maxOf { it.second }
     val min = data.minOf { it.second }
     val span = (max - min).takeIf { it != 0.0 } ?: 1.0
+    val lineColor = MaterialTheme.colorScheme.secondary
     Card(modifier = Modifier.fillMaxWidth()) {
         Canvas(modifier = Modifier.height(140.dp)) {
             val widthStep = size.width / (data.size - 1).coerceAtLeast(1)
             var lastPoint: androidx.compose.ui.geometry.Offset? = null
             data.forEachIndexed { index, pair ->
                 val x = widthStep * index
-                val normalized = (pair.second - min) / span
+                val normalized = ((pair.second - min) / span).toFloat()
                 val y = size.height - (normalized * size.height)
                 val point = androidx.compose.ui.geometry.Offset(x, y)
                 lastPoint?.let { previous ->
-                    drawLine(color = MaterialTheme.colorScheme.secondary, start = previous, end = point, strokeWidth = 6f)
+                    drawLine(color = lineColor, start = previous, end = point, strokeWidth = 6f)
                 }
                 lastPoint = point
             }
@@ -455,22 +457,23 @@ private fun LineChart(data: List<Pair<LocalDate, Double>>) {
 }
 
 private fun parseDates(raw: String): List<LocalDate> {
+    fun String.toLocalDateOrNull(): LocalDate? = runCatching { LocalDate.parse(this) }.getOrNull()
     val parts = raw.split(";").map { it.trim() }.filter { it.isNotEmpty() }
     val dates = mutableListOf<LocalDate>()
     parts.forEach { part ->
         if (part.contains("..")) {
             val rangeParts = part.split("..")
-            val start = runCatching { LocalDate.parse(rangeParts[0]) }.getOrNull()
-            val end = runCatching { LocalDate.parse(rangeParts.getOrElse(1) { rangeParts[0] }) }.getOrNull()
+            val start: LocalDate? = rangeParts[0].toLocalDateOrNull()
+            val end: LocalDate? = rangeParts.getOrElse(1) { rangeParts[0] }.toLocalDateOrNull()
             if (start != null && end != null) {
-                var date = start
+                var date: LocalDate = start
                 while (!date.isAfter(end)) {
                     dates.add(date)
                     date = date.plusDays(1)
                 }
             }
         } else {
-            runCatching { LocalDate.parse(part) }.getOrNull()?.let(dates::add)
+            part.toLocalDateOrNull()?.let(dates::add)
         }
     }
     return dates.distinct().sorted()

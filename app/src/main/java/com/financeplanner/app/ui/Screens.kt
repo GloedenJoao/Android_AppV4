@@ -2,20 +2,30 @@ package com.financeplanner.app.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Assessment
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Input
+import androidx.compose.material.icons.outlined.PlaylistAdd
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -49,7 +59,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
@@ -78,7 +90,7 @@ private fun Double.toInputText(): String = if (this == 0.0) "" else this.toStrin
 private fun Int.toInputText(): String = if (this <= 0) "" else this.toString()
 
 @Composable
-fun HomeScreen(viewModel: FinanceViewModel) {
+fun HomeScreen(viewModel: FinanceViewModel, onNavigateTo: (String) -> Unit) {
     val caixinhaTotal = viewModel.caixinhas.sumOf { it.balance }
     val valeTotal = viewModel.vales.sumOf { it.balance }
     LazyColumn(
@@ -89,14 +101,11 @@ fun HomeScreen(viewModel: FinanceViewModel) {
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Panorama", style = MaterialTheme.typography.headlineSmall)
-                Text(
-                    "Acompanhe rapidamente seus saldos e o que vem por aí nas próximas semanas.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            ScreenHeader(
+                title = "Panorama",
+                subtitle = "Acompanhe rapidamente seus saldos e o que vem por aí nas próximas semanas.",
+                icon = Icons.Outlined.Home
+            )
         }
         item {
             Row(
@@ -136,7 +145,88 @@ fun HomeScreen(viewModel: FinanceViewModel) {
                 modifier = Modifier.fillMaxWidth()
             )
         }
+        item {
+            HomeShortcuts(onNavigateTo = onNavigateTo)
+        }
     }
+}
+
+@Composable
+private fun ScreenHeader(title: String, subtitle: String, icon: ImageVector) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp)),
+        shape = RoundedCornerShape(22.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .background(
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.28f),
+                            MaterialTheme.colorScheme.secondary.copy(alpha = 0.22f),
+                            MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp)
+                        )
+                    )
+                )
+                .padding(18.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(52.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.22f),
+                            shape = RoundedCornerShape(16.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary)
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(title, style = MaterialTheme.typography.headlineSmall)
+                    Text(
+                        subtitle,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun HomeShortcuts(onNavigateTo: (String) -> Unit) {
+    SummaryCard(title = "Atalhos rápidos", modifier = Modifier.fillMaxWidth()) {
+        Text(
+            "Acesse rapidamente as outras áreas sem depender do rodapé.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            ShortcutChip(label = "Inputs", icon = Icons.Outlined.Input) { onNavigateTo("inputs") }
+            ShortcutChip(label = "Simular", icon = Icons.Outlined.PlaylistAdd) { onNavigateTo("simulate") }
+            ShortcutChip(label = "Dashboard", icon = Icons.Outlined.Assessment) { onNavigateTo("dashboard") }
+        }
+    }
+}
+
+@Composable
+private fun ShortcutChip(label: String, icon: ImageVector, onClick: () -> Unit) {
+    AssistChip(
+        onClick = onClick,
+        label = { Text(label) },
+        leadingIcon = { Icon(icon, contentDescription = null) },
+        colors = AssistChipDefaults.assistChipColors(
+            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp),
+            labelColor = MaterialTheme.colorScheme.onSurface,
+            leadingIconContentColor = MaterialTheme.colorScheme.primary
+        )
+    )
 }
 
 @Composable
@@ -166,14 +256,11 @@ fun InputsScreen(viewModel: FinanceViewModel) {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Configurações financeiras", style = MaterialTheme.typography.headlineSmall)
-                Text(
-                    "Organize saldos, rendimentos e datas com campos claros e confortáveis de preencher.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            ScreenHeader(
+                title = "Configurações financeiras",
+                subtitle = "Organize saldos, rendimentos e datas com campos claros e confortáveis de preencher.",
+                icon = Icons.Outlined.Settings
+            )
         }
         item {
             SummaryCard(title = "Atualizar Conta Corrente", modifier = Modifier.fillMaxWidth()) {
@@ -525,14 +612,11 @@ fun SimulationScreen(viewModel: FinanceViewModel) {
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Simular transações", style = MaterialTheme.typography.headlineSmall)
-                Text(
-                    "Planeje movimentos futuros com campos legíveis e atalhos rápidos para escolher origem.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            ScreenHeader(
+                title = "Simular transações",
+                subtitle = "Planeje movimentos futuros com campos legíveis e atalhos rápidos para escolher origem.",
+                icon = Icons.Outlined.PlaylistAdd
+            )
         }
         item {
             SummaryCard(title = "Configurar transação simulada", modifier = Modifier.fillMaxWidth()) {
@@ -744,14 +828,11 @@ fun DashboardScreen(viewModel: FinanceViewModel) {
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Dashboard", style = MaterialTheme.typography.headlineSmall)
-                Text(
-                    "Visualize tendências e ajuste o período para entender a saúde financeira.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            ScreenHeader(
+                title = "Dashboard",
+                subtitle = "Visualize tendências e ajuste o período para entender a saúde financeira.",
+                icon = Icons.Outlined.Assessment
+            )
         }
         item {
             SummaryCard(title = "Período de análise", modifier = Modifier.fillMaxWidth()) {

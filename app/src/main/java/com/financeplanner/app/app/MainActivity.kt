@@ -47,6 +47,8 @@ data class Screen(val route: String, val label: String, val icon: @Composable ()
 @Composable
 fun FinancePlannerApp(viewModel: FinanceViewModel) {
     val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
     val screens = listOf(
         Screen("home", "Início") { Icon(Icons.Outlined.Home, contentDescription = null) },
         Screen("inputs", "Inputs") { Icon(Icons.Outlined.Input, contentDescription = null) },
@@ -55,14 +57,18 @@ fun FinancePlannerApp(viewModel: FinanceViewModel) {
     )
 
     Scaffold(
-        bottomBar = { BottomNav(navController, screens) }
+        bottomBar = {
+            if (currentRoute != "home") {
+                BottomNav(navController, screens)
+            }
+        }
     ) { innerPadding ->
         NavHost(
             navController = navController,
             startDestination = "home",
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable("home") { HomeScreen(viewModel) }
+            composable("home") { HomeScreen(viewModel, onNavigateTo = { navController.navigate(it) }) }
             composable("inputs") { InputsScreen(viewModel) }
             composable("simulate") { SimulationScreen(viewModel) }
             composable("dashboard") { DashboardScreen(viewModel) }

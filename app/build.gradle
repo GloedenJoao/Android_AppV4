@@ -62,3 +62,9 @@ dependencies {
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
 }
+
+tasks.register("compileJava") {
+    group = "build"
+    description = "Compila código Java das variantes debug e release."
+    dependsOn("compileDebugJavaWithJavac", "compileReleaseJavaWithJavac")
+}

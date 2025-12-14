@@ -1,6 +1,7 @@
 package com.financeplanner.app.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,18 +11,21 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -32,6 +36,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -57,26 +64,67 @@ fun HomeScreen(viewModel: FinanceViewModel) {
     }
     val caixinhaTotal = viewModel.caixinhas.sumOf { it.balance }
     val valeTotal = viewModel.vales.sumOf { it.balance }
-    Column(
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("Panorama", style = MaterialTheme.typography.titleLarge)
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            SummaryCard(title = "Conta Corrente", value = viewModel.checkingAccount.balance)
-            SummaryCard(title = "Caixinhas", value = caixinhaTotal)
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Panorama", style = MaterialTheme.typography.headlineSmall)
+                Text(
+                    "Acompanhe rapidamente seus saldos e o que vem por aí nas próximas semanas.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            SummaryCard(title = "Vales", value = valeTotal)
-            SummaryCard(title = "Cartão (dívida)", value = -viewModel.creditCardConfig.debt, highlightNegative = true)
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                SummaryCard(
+                    title = "Conta Corrente",
+                    value = viewModel.checkingAccount.balance,
+                    modifier = Modifier.weight(1f)
+                )
+                SummaryCard(
+                    title = "Caixinhas",
+                    value = caixinhaTotal,
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
-        SummaryCard(title = "Total (CC + Caixinhas)", value = viewModel.checkingAccount.balance + caixinhaTotal)
-        Spacer(modifier = Modifier.height(8.dp))
-        Text("Próximos 30 dias", style = MaterialTheme.typography.titleMedium)
-        balances.firstOrNull()?.let {
-            DailyBalanceTable(balances)
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                SummaryCard(title = "Vales", value = valeTotal, modifier = Modifier.weight(1f))
+                SummaryCard(
+                    title = "Cartão (dívida)",
+                    value = -viewModel.creditCardConfig.debt,
+                    highlightNegative = true,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+        item {
+            SummaryCard(
+                title = "Total (CC + Caixinhas)",
+                value = viewModel.checkingAccount.balance + caixinhaTotal,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        item { Spacer(modifier = Modifier.height(4.dp)) }
+        item { Text("Próximos 30 dias", style = MaterialTheme.typography.titleMedium) }
+        item {
+            balances.firstOrNull()?.let {
+                DailyBalanceTable(balances)
+            }
         }
     }
 }
@@ -89,47 +137,122 @@ fun InputsScreen(viewModel: FinanceViewModel) {
     var cardDebt by remember { mutableStateOf(viewModel.creditCardConfig.debt.toString()) }
     var cardDay by remember { mutableStateOf(viewModel.creditCardConfig.closingDay.toString()) }
 
-    Column(
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("Valores iniciais", style = MaterialTheme.typography.titleLarge)
-        SummaryCard(title = "Atualizar Conta Corrente") {
-            OutlinedTextField(
-                value = checkingText,
-                onValueChange = { checkingText = it },
-                label = { Text("Saldo atual") }
-            )
-            Button(onClick = { checkingText.toDoubleOrNull()?.let(viewModel::updateCheckingBalance) }) { Text("Salvar") }
-        }
-        Text("Caixinhas CDB", style = MaterialTheme.typography.titleMedium)
-        CaixinhaSection(viewModel)
-        Text("Vales", style = MaterialTheme.typography.titleMedium)
-        ValeSection(viewModel)
-        Text("Movimentações Padrão", style = MaterialTheme.typography.titleMedium)
-        SummaryCard(title = "Salário") {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(value = salaryText, onValueChange = { salaryText = it }, label = { Text("Valor") })
-                OutlinedTextField(value = salaryDay, onValueChange = { salaryDay = it }, label = { Text("Dia do mês") })
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Configurações financeiras", style = MaterialTheme.typography.headlineSmall)
+                Text(
+                    "Organize saldos, rendimentos e datas com campos claros e confortáveis de preencher.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
-            Button(onClick = {
-                val amount = salaryText.toDoubleOrNull()
-                val day = salaryDay.toIntOrNull()
-                if (amount != null && day != null) viewModel.updateSalary(amount, day)
-            }) { Text("Salvar salário") }
         }
-        SummaryCard(title = "Cartão de Crédito") {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(value = cardDebt, onValueChange = { cardDebt = it }, label = { Text("Dívida atual") })
-                OutlinedTextField(value = cardDay, onValueChange = { cardDay = it }, label = { Text("Dia fechamento") })
+        item {
+            SummaryCard(title = "Atualizar Conta Corrente", modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = checkingText,
+                    onValueChange = { checkingText = it },
+                    label = { Text("Saldo atual") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    supportingText = { Text("Use ponto para separar centavos.") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Button(onClick = { checkingText.toDoubleOrNull()?.let(viewModel::updateCheckingBalance) }) {
+                        Text("Salvar")
+                    }
+                }
             }
-            Button(onClick = {
-                val debt = cardDebt.toDoubleOrNull()
-                val day = cardDay.toIntOrNull()
-                if (debt != null && day != null) viewModel.updateCreditCard(debt, day)
-            }) { Text("Salvar cartão") }
+        }
+        item { Text("Caixinhas CDB", style = MaterialTheme.typography.titleMedium) }
+        item { CaixinhaSection(viewModel) }
+        item { Text("Vales", style = MaterialTheme.typography.titleMedium) }
+        item { ValeSection(viewModel) }
+        item { Text("Movimentações Padrão", style = MaterialTheme.typography.titleMedium) }
+        item {
+            SummaryCard(title = "Salário", modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedTextField(
+                        value = salaryText,
+                        onValueChange = { salaryText = it },
+                        label = { Text("Valor") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = salaryDay,
+                        onValueChange = { salaryDay = it },
+                        label = { Text("Dia do mês") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Button(
+                        onClick = {
+                            val amount = salaryText.toDoubleOrNull()
+                            val day = salaryDay.toIntOrNull()
+                            if (amount != null && day != null) viewModel.updateSalary(amount, day)
+                        }
+                    ) { Text("Salvar salário") }
+                }
+            }
+        }
+        item {
+            SummaryCard(title = "Cartão de Crédito", modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedTextField(
+                        value = cardDebt,
+                        onValueChange = { cardDebt = it },
+                        label = { Text("Dívida atual") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = cardDay,
+                        onValueChange = { cardDay = it },
+                        label = { Text("Dia fechamento") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Button(
+                        onClick = {
+                            val debt = cardDebt.toDoubleOrNull()
+                            val day = cardDay.toIntOrNull()
+                            if (debt != null && day != null) viewModel.updateCreditCard(debt, day)
+                        }
+                    ) { Text("Salvar cartão") }
+                }
+            }
         }
     }
 }
@@ -138,23 +261,58 @@ fun InputsScreen(viewModel: FinanceViewModel) {
 private fun CaixinhaSection(viewModel: FinanceViewModel) {
     var name by remember { mutableStateOf("") }
     var balance by remember { mutableStateOf("") }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nome") })
-            OutlinedTextField(value = balance, onValueChange = { balance = it }, label = { Text("Saldo inicial") })
-        }
-        Button(onClick = {
-            val amount = balance.toDoubleOrNull()
-            if (name.isNotBlank() && amount != null) {
-                viewModel.addCaixinha(name, amount)
-                name = ""
-                balance = ""
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SummaryCard(title = "Nova caixinha", modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Nome") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+                OutlinedTextField(
+                    value = balance,
+                    onValueChange = { balance = it },
+                    label = { Text("Saldo inicial") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                    supportingText = { Text("Use ponto para centavos.") },
+                    modifier = Modifier.weight(1f)
+                )
             }
-        }) { Text("Adicionar caixinha") }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                Button(
+                    onClick = {
+                        val amount = balance.toDoubleOrNull()
+                        if (name.isNotBlank() && amount != null) {
+                            viewModel.addCaixinha(name, amount)
+                            name = ""
+                            balance = ""
+                        }
+                    }
+                ) { Text("Adicionar caixinha") }
+            }
+        }
         viewModel.caixinhas.forEach { caixinha ->
-            SummaryCard(title = caixinha.name, value = caixinha.balance) {
-                Text("ID: ${caixinha.id.take(6)}...", style = MaterialTheme.typography.bodySmall)
-                TextButton(onClick = { viewModel.removeCaixinha(caixinha.id) }) { Text("Remover") }
+            SummaryCard(title = caixinha.name, value = caixinha.balance, modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("ID: ${caixinha.id.take(6)}...", style = MaterialTheme.typography.bodySmall)
+                        Text("Atualize ou remova quando necessário.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                    }
+                    TextButton(onClick = { viewModel.removeCaixinha(caixinha.id) }) { Text("Remover") }
+                }
             }
         }
     }
@@ -162,29 +320,56 @@ private fun CaixinhaSection(viewModel: FinanceViewModel) {
 
 @Composable
 private fun ValeSection(viewModel: FinanceViewModel) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         viewModel.vales.forEach { vale ->
             var balance by remember(vale.id) { mutableStateOf(vale.balance.toString()) }
             var creditDay by remember(vale.id) { mutableStateOf(if (vale.creditDay == -1) "" else vale.creditDay.toString()) }
             var amount by remember(vale.id) { mutableStateOf(vale.amount.toString()) }
-            SummaryCard(title = vale.label) {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(value = amount, onValueChange = { amount = it }, label = { Text("Valor padrão") })
-                    OutlinedTextField(value = balance, onValueChange = { balance = it }, label = { Text("Saldo atual") })
+            SummaryCard(title = vale.label, modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedTextField(
+                        value = amount,
+                        onValueChange = { amount = it },
+                        label = { Text("Valor padrão") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = balance,
+                        onValueChange = { balance = it },
+                        label = { Text("Saldo atual") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                        modifier = Modifier.weight(1f)
+                    )
                 }
                 OutlinedTextField(
                     value = creditDay,
                     onValueChange = { creditDay = it },
-                    label = { Text("Dia de crédito (vazio = penúltimo dia útil)") }
+                    label = { Text("Dia de crédito (vazio = penúltimo dia útil)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                    modifier = Modifier.fillMaxWidth()
                 )
-                Button(onClick = {
-                    val current = balance.toDoubleOrNull()
-                    val day = creditDay.toIntOrNull() ?: -1
-                    val valeAmount = amount.toDoubleOrNull()
-                    if (current != null && valeAmount != null) {
-                        viewModel.updateVale(vale.id, current, day, valeAmount)
-                    }
-                }) { Text("Atualizar vale") }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Button(
+                        onClick = {
+                            val current = balance.toDoubleOrNull()
+                            val day = creditDay.toIntOrNull() ?: -1
+                            val valeAmount = amount.toDoubleOrNull()
+                            if (current != null && valeAmount != null) {
+                                viewModel.updateVale(vale.id, current, day, valeAmount)
+                            }
+                        }
+                    ) { Text("Atualizar vale") }
+                }
             }
         }
     }
@@ -212,66 +397,107 @@ fun SimulationScreen(viewModel: FinanceViewModel) {
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        item { Text("Simular transações", style = MaterialTheme.typography.titleLarge) }
         item {
-            SummaryCard(title = "Configurar transação simulada") {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nome") })
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(value = amount, onValueChange = { amount = it }, label = { Text("Valor") })
-                    OutlinedTextField(value = dateInput, onValueChange = { dateInput = it }, label = { Text("Datas (yyyy-MM-dd;início..fim)") })
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Simular transações", style = MaterialTheme.typography.headlineSmall)
+                Text(
+                    "Planeje movimentos futuros com campos legíveis e atalhos rápidos para escolher origem e destino.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        item {
+            SummaryCard(title = "Configurar transação simulada", modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Nome") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedTextField(
+                        value = amount,
+                        onValueChange = { amount = it },
+                        label = { Text("Valor") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = dateInput,
+                        onValueChange = { dateInput = it },
+                        label = { Text("Datas (yyyy-MM-dd;início..fim)") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        supportingText = { Text("Separe datas com ';' e use '..' para intervalos.") },
+                        modifier = Modifier.weight(1f)
+                    )
                 }
-                Text("Tipo")
+                Text("Tipo", style = MaterialTheme.typography.titleSmall)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(selected = type == TransactionType.DEBIT, onClick = { type = TransactionType.DEBIT }, label = { Text("Débito") })
                     FilterChip(selected = type == TransactionType.CREDIT, onClick = { type = TransactionType.CREDIT }, label = { Text("Crédito") })
                 }
-                Text("Origem")
+                Text("Origem", style = MaterialTheme.typography.titleSmall)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(selected = source == AccountSource.CHECKING, onClick = { source = AccountSource.CHECKING }, label = { Text("Conta Corrente") })
                     FilterChip(selected = source == AccountSource.CAIXINHAS, onClick = { source = AccountSource.CAIXINHAS }, label = { Text("Caixinhas") })
                     FilterChip(selected = source == AccountSource.VALE, onClick = { source = AccountSource.VALE }, label = { Text("Vales") })
                 }
                 if (type == TransactionType.DEBIT) {
-                    Text("Destino (transferência opcional)")
+                    Text("Destino (transferência opcional)", style = MaterialTheme.typography.titleSmall)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(selected = destination == AccountSource.CHECKING, onClick = { destination = AccountSource.CHECKING }, label = { Text("Conta Corrente") })
                         FilterChip(selected = destination == AccountSource.CAIXINHAS, onClick = { destination = AccountSource.CAIXINHAS }, label = { Text("Caixinhas") })
                     }
                 }
-                Button(onClick = {
-                    val parsed = parseDates(dateInput)
-                    val numeric = amount.toDoubleOrNull()
-                    if (name.isNotBlank() && numeric != null && parsed.isNotEmpty()) {
-                        viewModel.addSimulatedTransaction(
-                            SimulatedTransactionInput(
-                                name = name,
-                                amount = numeric,
-                                dates = parsed,
-                                type = type,
-                                source = source,
-                                destination = if (type == TransactionType.DEBIT) destination else null
-                            )
-                        )
-                        simulated.clear()
-                        simulated.addAll(viewModel.futureSimulations(range))
-                        name = ""
-                        amount = ""
-                    }
-                }) { Text("Adicionar simulação") }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Button(
+                        onClick = {
+                            val parsed = parseDates(dateInput)
+                            val numeric = amount.toDoubleOrNull()
+                            if (name.isNotBlank() && numeric != null && parsed.isNotEmpty()) {
+                                viewModel.addSimulatedTransaction(
+                                    SimulatedTransactionInput(
+                                        name = name,
+                                        amount = numeric,
+                                        dates = parsed,
+                                        type = type,
+                                        source = source,
+                                        destination = if (type == TransactionType.DEBIT) destination else null
+                                    )
+                                )
+                                simulated.clear()
+                                simulated.addAll(viewModel.futureSimulations(range))
+                                name = ""
+                                amount = ""
+                            }
+                        }
+                    ) { Text("Adicionar simulação") }
+                }
             }
         }
         item {
-            SummaryCard(title = "Futuras transações padrão") {
+            SummaryCard(title = "Futuras transações padrão", modifier = Modifier.fillMaxWidth()) {
                 standardTransactions.forEach { event ->
                     TransactionRow(title = event.name, subtitle = event.date.format(dateFormatter), amount = event.amount, positive = event.type == TransactionType.CREDIT)
                 }
             }
         }
         item {
-            SummaryCard(title = "Transações simuladas") {
+            SummaryCard(title = "Transações simuladas", modifier = Modifier.fillMaxWidth()) {
                 if (simulated.isEmpty()) {
                     Text("Nenhuma simulação adicionada")
                 }
@@ -310,44 +536,97 @@ fun DashboardScreen(viewModel: FinanceViewModel) {
     var endText by remember { mutableStateOf(LocalDate.now().plusDays(30).toString()) }
     var range by remember { mutableStateOf(LocalDate.now()..LocalDate.now().plusDays(30)) }
 
-    Column(
+    val insights = viewModel.dashboardInsights(range)
+    val history = viewModel.balances(range)
+
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("Dashboard", style = MaterialTheme.typography.titleLarge)
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedTextField(value = startText, onValueChange = { startText = it }, label = { Text("Início (yyyy-MM-dd)") })
-            OutlinedTextField(value = endText, onValueChange = { endText = it }, label = { Text("Fim (yyyy-MM-dd)") })
-            Button(onClick = {
-                val start = runCatching { LocalDate.parse(startText) }.getOrNull()
-                val end = runCatching { LocalDate.parse(endText) }.getOrNull()
-                if (start != null && end != null) range = start..end
-            }) { Text("Aplicar filtro") }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Dashboard", style = MaterialTheme.typography.headlineSmall)
+                Text(
+                    "Visualize tendências e ajuste o período para entender a saúde financeira.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
-        val insights = viewModel.dashboardInsights(range)
-        InsightsSection(insights)
-        val history = viewModel.balances(range)
+        item {
+            SummaryCard(title = "Período de análise", modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedTextField(
+                        value = startText,
+                        onValueChange = { startText = it },
+                        label = { Text("Início (yyyy-MM-dd)") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = endText,
+                        onValueChange = { endText = it },
+                        label = { Text("Fim (yyyy-MM-dd)") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Button(
+                        onClick = {
+                            val start = runCatching { LocalDate.parse(startText) }.getOrNull()
+                            val end = runCatching { LocalDate.parse(endText) }.getOrNull()
+                            if (start != null && end != null) range = start..end
+                        }
+                    ) { Text("Aplicar filtro") }
+                }
+            }
+        }
+        item { InsightsSection(insights) }
         if (history.isNotEmpty()) {
-            Text("Faixa diária", style = MaterialTheme.typography.titleMedium)
-            BandChart(history.map { it.date to (it.checking + it.caixinhaTotal) })
-            Text("Variação diária", style = MaterialTheme.typography.titleMedium)
-            LineChart(history.map { it.date to (it.checking + it.caixinhaTotal) })
+            item { Text("Faixa diária", style = MaterialTheme.typography.titleMedium) }
+            item { BandChart(history.map { it.date to (it.checking + it.caixinhaTotal) }) }
+            item { Text("Variação diária", style = MaterialTheme.typography.titleMedium) }
+            item { LineChart(history.map { it.date to (it.checking + it.caixinhaTotal) }) }
         }
     }
 }
 
 @Composable
-private fun SummaryCard(title: String, value: Double? = null, highlightNegative: Boolean = false, content: @Composable (() -> Unit)? = null) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+private fun SummaryCard(
+    title: String,
+    value: Double? = null,
+    highlightNegative: Boolean = false,
+    modifier: Modifier = Modifier,
+    content: @Composable (() -> Unit)? = null
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
             value?.let {
                 val color = if (it < 0 || highlightNegative) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-                Text(currencyFormat.format(it), color = color, fontWeight = FontWeight.Bold)
+                Text(currencyFormat.format(it), color = color, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.headlineSmall)
             }
-            content?.invoke()
+            if (content != null) {
+                Divider(color = MaterialTheme.colorScheme.surfaceVariant)
+                content()
+            }
         }
     }
 }
@@ -369,26 +648,38 @@ private fun TransactionRow(title: String, subtitle: String, amount: Double, posi
 
 @Composable
 private fun DailyBalanceTable(history: List<BalanceSnapshot>) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(modifier = Modifier.padding(12.dp)) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp)),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Dia", fontWeight = FontWeight.Bold)
-                Text("CC")
-                Text("Caixinhas")
-                Text("Vales")
-                Text("Cartão")
+                Text("CC", textAlign = TextAlign.End, modifier = Modifier.weight(1f))
+                Text("Caixinhas", textAlign = TextAlign.End, modifier = Modifier.weight(1f))
+                Text("Vales", textAlign = TextAlign.End, modifier = Modifier.weight(1f))
+                Text("Cartão", textAlign = TextAlign.End, modifier = Modifier.weight(1f))
             }
-            history.forEach { snapshot ->
+            Divider(color = MaterialTheme.colorScheme.surfaceVariant)
+            history.forEachIndexed { index, snapshot ->
                 val checkingColor = if (snapshot.checking >= 0) Color(0xFF10B981) else MaterialTheme.colorScheme.error
                 val caixinhaColor = if (snapshot.caixinhaTotal >= 0) Color(0xFF10B981) else MaterialTheme.colorScheme.error
                 val valeColor = if (snapshot.valeTotal >= 0) Color(0xFF10B981) else MaterialTheme.colorScheme.error
                 val cardColor = if (snapshot.cardDebt <= 0) MaterialTheme.colorScheme.error else Color(0xFF10B981)
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
                     Text(snapshot.date.format(dateFormatter), modifier = Modifier.weight(1f))
                     Text(currencyFormat.format(snapshot.checking), modifier = Modifier.weight(1f), color = checkingColor, textAlign = TextAlign.End)
                     Text(currencyFormat.format(snapshot.caixinhaTotal), modifier = Modifier.weight(1f), color = caixinhaColor, textAlign = TextAlign.End)
                     Text(currencyFormat.format(snapshot.valeTotal), modifier = Modifier.weight(1f), color = valeColor, textAlign = TextAlign.End)
-                    Text(currencyFormat.format(snapshot.cardDebt), modifier = Modifier.weight(1f), color = cardColor, textAlign = TextAlign.End)
+                    Text(currencyFormat.format(snapshot.cardDebt), modifier = Modifier.weight(1f), color = cardColor, textAlign= TextAlign.End)
+                }
+                if (index < history.lastIndex) {
+                    Divider(color = MaterialTheme.colorScheme.surfaceVariant)
                 }
             }
         }

@@ -926,17 +926,24 @@ private fun TransactionRow(title: String, subtitle: String, amount: Double, posi
 
 @Composable
 private fun DailyBalanceTable(history: List<BalanceSnapshot>) {
+    val dateWeight = 1.2f
+    val valueWeight = 1f
+    val headerStyle = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
+
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp)),
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Dia", fontWeight = FontWeight.Bold)
-                Text("CC", textAlign = TextAlign.End, modifier = Modifier.weight(1f))
-                Text("Caixinhas", textAlign = TextAlign.End, modifier = Modifier.weight(1f))
-                Text("Vales", textAlign = TextAlign.End, modifier = Modifier.weight(1f))
-                Text("Cartão", textAlign = TextAlign.End, modifier = Modifier.weight(1f))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Dia", modifier = Modifier.weight(dateWeight), style = headerStyle)
+                Text("CC", textAlign = TextAlign.End, modifier = Modifier.weight(valueWeight), style = headerStyle)
+                Text("Caixinhas", textAlign = TextAlign.End, modifier = Modifier.weight(valueWeight), style = headerStyle)
+                Text("Vales", textAlign = TextAlign.End, modifier = Modifier.weight(valueWeight), style = headerStyle)
+                Text("Cartão", textAlign = TextAlign.End, modifier = Modifier.weight(valueWeight), style = headerStyle)
             }
             Divider(color = MaterialTheme.colorScheme.surfaceVariant)
             history.forEachIndexed { index, snapshot ->
@@ -948,13 +955,18 @@ private fun DailyBalanceTable(history: List<BalanceSnapshot>) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(snapshot.date.format(dateFormatter), modifier = Modifier.weight(1f))
-                    Text(currencyFormat.format(snapshot.checking), modifier = Modifier.weight(1f), color = checkingColor, textAlign = TextAlign.End)
-                    Text(currencyFormat.format(snapshot.caixinhaTotal), modifier = Modifier.weight(1f), color = caixinhaColor, textAlign = TextAlign.End)
-                    Text(currencyFormat.format(snapshot.valeTotal), modifier = Modifier.weight(1f), color = valeColor, textAlign = TextAlign.End)
-                    Text(currencyFormat.format(-snapshot.cardDebt), modifier = Modifier.weight(1f), color = cardColor, textAlign = TextAlign.End)
+                    Text(
+                        snapshot.date.format(dateFormatter),
+                        modifier = Modifier.weight(dateWeight),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(currencyFormat.format(snapshot.checking), modifier = Modifier.weight(valueWeight), color = checkingColor, textAlign = TextAlign.End)
+                    Text(currencyFormat.format(snapshot.caixinhaTotal), modifier = Modifier.weight(valueWeight), color = caixinhaColor, textAlign = TextAlign.End)
+                    Text(currencyFormat.format(snapshot.valeTotal), modifier = Modifier.weight(valueWeight), color = valeColor, textAlign = TextAlign.End)
+                    Text(currencyFormat.format(-snapshot.cardDebt), modifier = Modifier.weight(valueWeight), color = cardColor, textAlign = TextAlign.End)
                 }
                 if (index < history.lastIndex) {
                     Divider(color = MaterialTheme.colorScheme.surfaceVariant)

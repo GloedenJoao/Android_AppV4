@@ -9,3 +9,9 @@ plugins {
     id "com.android.application" version "8.5.1" apply false
     id "org.jetbrains.kotlin.android" version "1.9.24" apply false
 }
+
+tasks.register("compileJava") {
+    group = "build"
+    description = "Dispara a compilação Java das variantes do módulo app."
+    dependsOn(":app:compileDebugJavaWithJavac", ":app:compileReleaseJavaWithJavac")
+}

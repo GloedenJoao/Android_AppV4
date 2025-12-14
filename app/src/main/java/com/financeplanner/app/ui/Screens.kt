@@ -1158,6 +1158,7 @@ private fun VariationChart(title: String, points: List<VariationPoint>, baseColo
     val scale = max(abs(maxValue), abs(minValue)).takeIf { it != 0.0 } ?: 1.0
     val vsInitialColor = baseColor
     val vsPreviousColor = MaterialTheme.colorScheme.secondary
+    val neutralLineColor = MaterialTheme.colorScheme.outlineVariant
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1170,7 +1171,7 @@ private fun VariationChart(title: String, points: List<VariationPoint>, baseColo
                 val widthStep = size.width / (points.size - 1).coerceAtLeast(1)
                 val centerY = size.height / 2f
                 drawLine(
-                    color = MaterialTheme.colorScheme.outlineVariant,
+                    color = neutralLineColor,
                     start = androidx.compose.ui.geometry.Offset(0f, centerY),
                     end = androidx.compose.ui.geometry.Offset(size.width, centerY),
                     strokeWidth = 2f

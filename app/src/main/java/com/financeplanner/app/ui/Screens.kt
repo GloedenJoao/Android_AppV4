@@ -1079,20 +1079,23 @@ private fun InsightsSection(insights: List<DashboardInsight>) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         insights.forEach { insight ->
             val diff = insight.endValue - insight.startValue
-            val positive = diff >= 0
+            val percent = if (insight.startValue != 0.0) (diff / insight.startValue) * 100 else 0.0
+            val positive = percent >= 0
             val color = if (positive) Color(0xFF10B981) else MaterialTheme.colorScheme.error
-            SummaryCard(title = insight.label) {
-                val percent = if (insight.startValue != 0.0) (diff / insight.startValue) * 100 else 0.0
+            SummaryCard(
+                title = insight.label,
+                value = insight.endValue,
+                highlightNegative = insight.endValue < 0
+            ) {
                 Text(
                     text = String.format(Locale("pt", "BR"), "%.1f%%", percent),
-                    style = MaterialTheme.typography.headlineSmall,
+                    style = MaterialTheme.typography.headlineMedium,
                     color = color,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text("Início: ${currencyFormat.format(insight.startValue)}")
-                Text("Fim: ${currencyFormat.format(insight.endValue)}", fontWeight = FontWeight.Bold)
-                Text("Variação: ${currencyFormat.format(diff)}", color = color)
+                Text("Saldo final: ${currencyFormat.format(insight.endValue)}", fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -1101,8 +1104,9 @@ private fun InsightsSection(insights: List<DashboardInsight>) {
 @Composable
 private fun AccountBandsChart(history: List<BalanceSnapshot>) {
     if (history.isEmpty()) return
-    val checkingData = history.map { it.date to it.checking }
-    val caixinhaData = history.map { it.date to it.caixinhaTotal }
+    val orderedHistory = history.sortedBy { it.date }
+    val checkingData = orderedHistory.map { it.date to it.checking }
+    val caixinhaData = orderedHistory.map { it.date to it.caixinhaTotal }
     val max = maxOf(checkingData.maxOf { it.second }, caixinhaData.maxOf { it.second })
     val min = minOf(checkingData.minOf { it.second }, caixinhaData.minOf { it.second })
     val span = (max - min).takeIf { it != 0.0 } ?: 1.0
@@ -1115,7 +1119,7 @@ private fun AccountBandsChart(history: List<BalanceSnapshot>) {
                 LegendDot(color = caixinhaColor, label = "Caixinhas Total")
             }
             Canvas(modifier = Modifier.height(180.dp)) {
-                val widthStep = size.width / (history.size - 1).coerceAtLeast(1)
+                val widthStep = size.width / (orderedHistory.size - 1).coerceAtLeast(1)
                 fun yFor(value: Double): Float = size.height - (((value - min) / span).toFloat() * size.height)
 
                 fun drawSeries(data: List<Pair<LocalDate, Double>>, color: Color) {
@@ -1135,14 +1139,19 @@ private fun AccountBandsChart(history: List<BalanceSnapshot>) {
                 drawSeries(checkingData, checkingColor)
                 drawSeries(caixinhaData, caixinhaColor)
             }
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(checkingData.first().first.format(dateFormatter), style = MaterialTheme.typography.labelSmall)
+                Text(checkingData.last().first.format(dateFormatter), style = MaterialTheme.typography.labelSmall)
+            }
         }
     }
 }
 
 @Composable
 private fun VariationSection(history: List<BalanceSnapshot>) {
-    val checkingPoints = variationPoints(history) { it.checking }
-    val caixinhaPoints = variationPoints(history) { it.caixinhaTotal }
+    val ordered = history.sortedBy { it.date }
+    val checkingPoints = variationPoints(ordered) { it.checking }
+    val caixinhaPoints = variationPoints(ordered) { it.caixinhaTotal }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         VariationChart(title = "Conta Corrente", points = checkingPoints, baseColor = MaterialTheme.colorScheme.primary)
@@ -1159,6 +1168,7 @@ private fun VariationChart(title: String, points: List<VariationPoint>, baseColo
     val vsInitialColor = baseColor
     val vsPreviousColor = MaterialTheme.colorScheme.secondary
     val neutralLineColor = MaterialTheme.colorScheme.outlineVariant
+    val dateLabels = points.map { it.date.format(dateFormatter) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1195,6 +1205,10 @@ private fun VariationChart(title: String, points: List<VariationPoint>, baseColo
 
                 drawSeries(points.map { it.vsInitial }, vsInitialColor)
                 drawSeries(points.map { it.vsPrevious }, vsPreviousColor)
+            }
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(dateLabels.first(), style = MaterialTheme.typography.labelSmall)
+                Text(dateLabels.last(), style = MaterialTheme.typography.labelSmall)
             }
         }
     }

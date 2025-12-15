@@ -145,22 +145,6 @@ fun HomeScreen(viewModel: FinanceViewModel, onNavigateTo: (String) -> Unit) {
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                TextButton(onClick = { showClearDialog = true }) {
-                    Icon(
-                        imageVector = Icons.Outlined.Delete,
-                        contentDescription = "Limpar informações",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Limpar dados", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        }
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 SummaryCard(
@@ -198,6 +182,22 @@ fun HomeScreen(viewModel: FinanceViewModel, onNavigateTo: (String) -> Unit) {
         }
         item {
             HomeShortcuts(onNavigateTo = onNavigateTo)
+        }
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = { showClearDialog = true }) {
+                    Icon(
+                        imageVector = Icons.Outlined.Delete,
+                        contentDescription = "Limpar informações",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Limpar dados", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
         }
     }
 }

@@ -78,6 +78,7 @@ import androidx.compose.ui.unit.dp
 import com.financeplanner.app.data.FinanceViewModel
 import com.financeplanner.app.model.AccountSource
 import com.financeplanner.app.model.BalanceSnapshot
+import com.financeplanner.app.model.DashboardFocus
 import com.financeplanner.app.model.DashboardInsight
 import com.financeplanner.app.model.SimulatedTransactionInput
 import com.financeplanner.app.model.TransactionType
@@ -839,12 +840,13 @@ fun DashboardScreen(viewModel: FinanceViewModel) {
     }
     var range by remember { mutableStateOf(today..defaultEnd) }
     var showPicker by remember { mutableStateOf(false) }
+    var focus by remember { mutableStateOf(DashboardFocus.CONTAS) }
     val dateRangeState = rememberDateRangePickerState(
         initialSelectedStartDateMillis = range.start.toEpochMillis(),
         initialSelectedEndDateMillis = range.endInclusive.toEpochMillis()
     )
 
-    val insights = viewModel.dashboardInsights(range)
+    val insights = viewModel.dashboardInsights(range, focus)
     val history = viewModel.balances(range)
 
     LazyColumn(
@@ -877,14 +879,92 @@ fun DashboardScreen(viewModel: FinanceViewModel) {
                         Text("Usar padrão")
                     }
                 }
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = focus == DashboardFocus.CONTAS,
+                        onClick = { focus = DashboardFocus.CONTAS },
+                        label = { Text("Contas") }
+                    )
+                    FilterChip(
+                        selected = focus == DashboardFocus.VALES,
+                        onClick = { focus = DashboardFocus.VALES },
+                        label = { Text("Vales") }
+                    )
+                }
             }
         }
         item { InsightsSection(insights) }
         if (history.isNotEmpty()) {
-            item { Text("Faixas por conta", style = MaterialTheme.typography.titleMedium) }
-            item { AccountBandsChart(history) }
-            item { Text("Variação percentual", style = MaterialTheme.typography.titleMedium) }
-            item { VariationSection(history) }
+            when (focus) {
+                DashboardFocus.CONTAS -> {
+                    item { Text("Faixas por conta", style = MaterialTheme.typography.titleMedium) }
+                    item {
+                        BalanceLineChart(
+                            history = history,
+                            series = listOf(
+                                BalanceSeries(
+                                    label = "Conta Corrente",
+                                    color = MaterialTheme.colorScheme.primary,
+                                    selector = { it.checking }
+                                ),
+                                BalanceSeries(
+                                    label = "Caixinhas Total",
+                                    color = MaterialTheme.colorScheme.tertiary,
+                                    selector = { it.caixinhaTotal }
+                                )
+                            )
+                        )
+                    }
+                    item { Text("Variação percentual", style = MaterialTheme.typography.titleMedium) }
+                    item {
+                        VariationSection(
+                            history = history,
+                            series = listOf(
+                                VariationSeries(
+                                    title = "Conta Corrente",
+                                    color = MaterialTheme.colorScheme.primary,
+                                    selector = { it.checking }
+                                ),
+                                VariationSeries(
+                                    title = "Caixinhas Total",
+                                    color = MaterialTheme.colorScheme.tertiary,
+                                    selector = { it.caixinhaTotal }
+                                )
+                            )
+                        )
+                    }
+                }
+
+                DashboardFocus.VALES -> {
+                    item { Text("Linha do tempo dos vales", style = MaterialTheme.typography.titleMedium) }
+                    item {
+                        BalanceLineChart(
+                            history = history,
+                            series = listOf(
+                                BalanceSeries(
+                                    label = "Vales",
+                                    color = MaterialTheme.colorScheme.primary,
+                                    selector = { it.valeTotal }
+                                )
+                            )
+                        )
+                    }
+                    item { Text("Variação percentual", style = MaterialTheme.typography.titleMedium) }
+                    item {
+                        VariationSection(
+                            history = history,
+                            series = listOf(
+                                VariationSeries(
+                                    title = "Vales",
+                                    color = MaterialTheme.colorScheme.primary,
+                                    selector = { it.valeTotal }
+                                )
+                            )
+                        )
+                    }
+                }
+            }
         }
     }
     if (showPicker) {
@@ -1102,21 +1182,25 @@ private fun InsightsSection(insights: List<DashboardInsight>) {
 }
 
 @Composable
-private fun AccountBandsChart(history: List<BalanceSnapshot>) {
-    if (history.isEmpty()) return
+private fun BalanceLineChart(history: List<BalanceSnapshot>, series: List<BalanceSeries>) {
+    if (history.isEmpty() || series.isEmpty()) return
     val orderedHistory = history.sortedBy { it.date }
-    val checkingData = orderedHistory.map { it.date to it.checking }
-    val caixinhaData = orderedHistory.map { it.date to it.caixinhaTotal }
-    val max = maxOf(checkingData.maxOf { it.second }, caixinhaData.maxOf { it.second })
-    val min = minOf(checkingData.minOf { it.second }, caixinhaData.minOf { it.second })
+    val seriesData = series.map { balanceSeries ->
+        LineSeries(
+            label = balanceSeries.label,
+            color = balanceSeries.color,
+            points = orderedHistory.map { it.date to balanceSeries.selector(it) }
+        )
+    }
+    val allValues = seriesData.flatMap { it.points.map { point -> point.second } }
+    val max = allValues.maxOrNull() ?: return
+    val min = allValues.minOrNull() ?: return
     val span = (max - min).takeIf { it != 0.0 } ?: 1.0
-    val checkingColor = MaterialTheme.colorScheme.primary
-    val caixinhaColor = MaterialTheme.colorScheme.tertiary
+
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                LegendDot(color = checkingColor, label = "Conta Corrente")
-                LegendDot(color = caixinhaColor, label = "Caixinhas Total")
+                seriesData.forEach { LegendDot(color = it.color, label = it.label) }
             }
             Canvas(modifier = Modifier.fillMaxWidth().height(180.dp)) {
                 val widthStep = size.width / (orderedHistory.size - 1).coerceAtLeast(1)
@@ -1136,26 +1220,29 @@ private fun AccountBandsChart(history: List<BalanceSnapshot>) {
                     }
                 }
 
-                drawSeries(checkingData, checkingColor)
-                drawSeries(caixinhaData, caixinhaColor)
+                seriesData.forEach { drawSeries(it.points, it.color) }
             }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(checkingData.first().first.format(dateFormatter), style = MaterialTheme.typography.labelSmall)
-                Text(checkingData.last().first.format(dateFormatter), style = MaterialTheme.typography.labelSmall)
+                Text(seriesData.first().points.first().first.format(dateFormatter), style = MaterialTheme.typography.labelSmall)
+                Text(seriesData.first().points.last().first.format(dateFormatter), style = MaterialTheme.typography.labelSmall)
             }
         }
     }
 }
 
 @Composable
-private fun VariationSection(history: List<BalanceSnapshot>) {
+private fun VariationSection(history: List<BalanceSnapshot>, series: List<VariationSeries>) {
     val ordered = history.sortedBy { it.date }
-    val checkingPoints = variationPoints(ordered) { it.checking }
-    val caixinhaPoints = variationPoints(ordered) { it.caixinhaTotal }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        VariationChart(title = "Conta Corrente", points = checkingPoints, baseColor = MaterialTheme.colorScheme.primary)
-        VariationChart(title = "Caixinhas Total", points = caixinhaPoints, baseColor = MaterialTheme.colorScheme.tertiary)
+        series.forEach { variationSeries ->
+            val points = variationPoints(ordered, variationSeries.selector)
+            VariationChart(
+                title = variationSeries.title,
+                points = points,
+                baseColor = variationSeries.color
+            )
+        }
     }
 }
 
@@ -1221,6 +1308,12 @@ private fun LegendDot(color: Color, label: String) {
         Text(label, style = MaterialTheme.typography.bodySmall)
     }
 }
+
+private data class BalanceSeries(val label: String, val color: Color, val selector: (BalanceSnapshot) -> Double)
+
+private data class LineSeries(val label: String, val color: Color, val points: List<Pair<LocalDate, Double>>)
+
+private data class VariationSeries(val title: String, val color: Color, val selector: (BalanceSnapshot) -> Double)
 
 private fun variationPoints(
     history: List<BalanceSnapshot>,

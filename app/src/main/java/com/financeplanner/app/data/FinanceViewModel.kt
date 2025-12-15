@@ -6,6 +6,7 @@ import com.financeplanner.app.model.BalanceSnapshot
 import com.financeplanner.app.model.Caixinha
 import com.financeplanner.app.model.CreditCardConfig
 import com.financeplanner.app.model.CheckingAccount
+import com.financeplanner.app.model.DashboardFocus
 import com.financeplanner.app.model.DashboardInsight
 import com.financeplanner.app.model.SalaryConfig
 import com.financeplanner.app.model.SimulatedTransactionInput
@@ -209,7 +210,7 @@ class FinanceViewModel : ViewModel() {
         return snapshots
     }
 
-    fun dashboardInsights(range: ClosedRange<LocalDate>): List<DashboardInsight> {
+    fun dashboardInsights(range: ClosedRange<LocalDate>, focus: DashboardFocus): List<DashboardInsight> {
         val history = balances(range)
         val first = history.firstOrNull() ?: return emptyList()
         val last = history.lastOrNull() ?: return emptyList()
@@ -223,11 +224,20 @@ class FinanceViewModel : ViewModel() {
         val checkingStart = first.checking
         val checkingEnd = last.checking
 
-        return listOf(
-            DashboardInsight("Total", totalStart, totalEnd),
-            DashboardInsight("Conta Corrente", checkingStart, checkingEnd),
-            DashboardInsight("Caixinhas Total", caixinhaStart, caixinhaEnd)
-        )
+        val valeStart = first.valeTotal
+        val valeEnd = last.valeTotal
+
+        return when (focus) {
+            DashboardFocus.CONTAS -> listOf(
+                DashboardInsight("Total", totalStart, totalEnd),
+                DashboardInsight("Conta Corrente", checkingStart, checkingEnd),
+                DashboardInsight("Caixinhas Total", caixinhaStart, caixinhaEnd)
+            )
+
+            DashboardFocus.VALES -> listOf(
+                DashboardInsight("Vales", valeStart, valeEnd)
+            )
+        }
     }
 
     fun nextSalaryDate(from: LocalDate = LocalDate.now()): LocalDate =

@@ -1118,7 +1118,7 @@ private fun AccountBandsChart(history: List<BalanceSnapshot>) {
                 LegendDot(color = checkingColor, label = "Conta Corrente")
                 LegendDot(color = caixinhaColor, label = "Caixinhas Total")
             }
-            Canvas(modifier = Modifier.height(180.dp)) {
+            Canvas(modifier = Modifier.fillMaxWidth().height(180.dp)) {
                 val widthStep = size.width / (orderedHistory.size - 1).coerceAtLeast(1)
                 fun yFor(value: Double): Float = size.height - (((value - min) / span).toFloat() * size.height)
 
@@ -1177,7 +1177,7 @@ private fun VariationChart(title: String, points: List<VariationPoint>, baseColo
                 LegendDot(color = vsInitialColor, label = "Vs início")
                 LegendDot(color = vsPreviousColor, label = "Vs dia anterior")
             }
-            Canvas(modifier = Modifier.height(200.dp)) {
+            Canvas(modifier = Modifier.fillMaxWidth().height(200.dp)) {
                 val widthStep = size.width / (points.size - 1).coerceAtLeast(1)
                 val centerY = size.height / 2f
                 drawLine(

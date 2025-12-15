@@ -21,12 +21,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Input
+import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
 import androidx.compose.material.icons.outlined.Assessment
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Input
-import androidx.compose.material.icons.outlined.PlaylistAdd
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -37,9 +37,9 @@ import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DateRangePicker
-import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -218,8 +218,8 @@ private fun HomeShortcuts(onNavigateTo: (String) -> Unit) {
         )
         Spacer(modifier = Modifier.height(8.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            ShortcutChip(label = "Inputs", icon = Icons.Outlined.Input) { onNavigateTo("inputs") }
-            ShortcutChip(label = "Simular", icon = Icons.Outlined.PlaylistAdd) { onNavigateTo("simulate") }
+            ShortcutChip(label = "Inputs", icon = Icons.AutoMirrored.Outlined.Input) { onNavigateTo("inputs") }
+            ShortcutChip(label = "Simular", icon = Icons.AutoMirrored.Outlined.PlaylistAdd) { onNavigateTo("simulate") }
             ShortcutChip(label = "Dashboard", icon = Icons.Outlined.Assessment) { onNavigateTo("dashboard") }
         }
     }
@@ -625,7 +625,7 @@ fun SimulationScreen(viewModel: FinanceViewModel) {
             ScreenHeader(
                 title = "Simular transações",
                 subtitle = "Planeje movimentos futuros com campos legíveis e atalhos rápidos para escolher origem.",
-                icon = Icons.Outlined.PlaylistAdd
+                icon = Icons.AutoMirrored.Outlined.PlaylistAdd
             )
         }
         item {
@@ -706,7 +706,7 @@ fun SimulationScreen(viewModel: FinanceViewModel) {
                         )
                     }
                 }
-                Divider(modifier = Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 Text("Transferência entre contas", style = MaterialTheme.typography.titleSmall)
                 Text(
                     "Ative para mover valores entre a conta corrente e uma caixinha CDB sem criar duas transações.",
@@ -1045,7 +1045,7 @@ private fun SummaryCard(
                 }
             }
             if (hasContent && expanded) {
-                Divider(color = MaterialTheme.colorScheme.surfaceVariant)
+                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
                 content?.invoke()
             }
         }
@@ -1089,7 +1089,7 @@ private fun DailyBalanceTable(history: List<BalanceSnapshot>) {
                 Text("Vales", modifier = Modifier.weight(valueWeight), style = headerStyle, textAlign = TextAlign.End, maxLines = 1, softWrap = false)
                 Text("Cartão", modifier = Modifier.weight(valueWeight), style = headerStyle, textAlign = TextAlign.End, maxLines = 1, softWrap = false)
             }
-            Divider(color = MaterialTheme.colorScheme.surfaceVariant)
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
             history.forEachIndexed { index, snapshot ->
                 val checkingColor = if (snapshot.checking >= 0) Color(0xFF10B981) else MaterialTheme.colorScheme.error
                 val caixinhaColor = if (snapshot.caixinhaTotal >= 0) Color(0xFF10B981) else MaterialTheme.colorScheme.error
@@ -1147,7 +1147,7 @@ private fun DailyBalanceTable(history: List<BalanceSnapshot>) {
                     )
                 }
                 if (index < history.lastIndex) {
-                    Divider(color = MaterialTheme.colorScheme.surfaceVariant)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
                 }
             }
         }

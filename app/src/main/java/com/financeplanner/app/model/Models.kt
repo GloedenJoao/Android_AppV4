@@ -44,6 +44,8 @@ data class BalanceSnapshot(
 
 enum class AccountSource { CHECKING, CAIXINHAS, VALE, CREDIT_CARD }
 
+enum class DashboardFocus { CONTAS, VALES }
+
 data class DashboardInsight(
     val label: String,
     val startValue: Double,

@@ -92,6 +92,15 @@ class FinanceViewModel : ViewModel() {
         simulatedTransactions.clear()
     }
 
+    fun resetAllData() {
+        checkingAccount = CheckingAccount(balance = 0.0)
+        caixinhas.clear()
+        vales.clear()
+        salary = SalaryConfig(amount = 0.0, dayOfMonth = 1)
+        creditCardConfig = CreditCardConfig(nextInvoiceAmount = 0.0, closingDay = 1)
+        simulatedTransactions.clear()
+    }
+
     fun upcomingStandardTransactions(range: ClosedRange<LocalDate>): List<TransactionEvent> {
         val events = mutableListOf<TransactionEvent>()
         val start = range.start

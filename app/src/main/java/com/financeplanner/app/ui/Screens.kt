@@ -28,6 +28,7 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
@@ -101,8 +102,32 @@ private fun Int.toInputText(): String = if (this <= 0) "" else this.toString()
 
 @Composable
 fun HomeScreen(viewModel: FinanceViewModel, onNavigateTo: (String) -> Unit) {
+    var showClearDialog by remember { mutableStateOf(false) }
     val caixinhaTotal = viewModel.caixinhas.sumOf { it.balance }
     val valeTotal = viewModel.vales.sumOf { it.balance }
+
+    if (showClearDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearDialog = false },
+            icon = { Icon(Icons.Outlined.Delete, contentDescription = null) },
+            title = { Text("Remover informações") },
+            text = {
+                Text(
+                    "Essa ação vai limpar todos os saldos, vales, caixinhas e simulações, inclusive os dados pré-cadastrados. Deseja continuar?",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.resetAllData()
+                        showClearDialog = false
+                    }
+                ) { Text("Sim, apagar") }
+            },
+            dismissButton = { TextButton(onClick = { showClearDialog = false }) { Text("Cancelar") } }
+        )
+    }
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -116,6 +141,22 @@ fun HomeScreen(viewModel: FinanceViewModel, onNavigateTo: (String) -> Unit) {
                 subtitle = "Acompanhe rapidamente seus saldos e o que vem por aí nas próximas semanas.",
                 icon = Icons.Outlined.Home
             )
+        }
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = { showClearDialog = true }) {
+                    Icon(
+                        imageVector = Icons.Outlined.Delete,
+                        contentDescription = "Limpar informações",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Limpar dados", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
         }
         item {
             Row(

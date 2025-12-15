@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package com.financeplanner.app.ui
 
 import androidx.compose.foundation.Canvas
@@ -86,6 +88,9 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.launch
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.min
 
 private val currencyFormat: NumberFormat = NumberFormat.getCurrencyInstance(Locale("pt", "BR"))
 private val dateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM")
@@ -827,9 +832,17 @@ fun SimulationScreen(viewModel: FinanceViewModel) {
 
 @Composable
 fun DashboardScreen(viewModel: FinanceViewModel) {
-    var startText by remember { mutableStateOf(LocalDate.now().toString()) }
-    var endText by remember { mutableStateOf(LocalDate.now().plusDays(30).toString()) }
-    var range by remember { mutableStateOf(LocalDate.now()..LocalDate.now().plusDays(30)) }
+    val today = remember { LocalDate.now() }
+    val defaultEnd = remember {
+        val candidate = viewModel.nextSalaryDate(today).minusDays(1)
+        if (candidate.isBefore(today)) today else candidate
+    }
+    var range by remember { mutableStateOf(today..defaultEnd) }
+    var showPicker by remember { mutableStateOf(false) }
+    val dateRangeState = rememberDateRangePickerState(
+        initialSelectedStartDateMillis = range.start.toEpochMillis(),
+        initialSelectedEndDateMillis = range.endInclusive.toEpochMillis()
+    )
 
     val insights = viewModel.dashboardInsights(range)
     val history = viewModel.balances(range)
@@ -850,47 +863,53 @@ fun DashboardScreen(viewModel: FinanceViewModel) {
         }
         item {
             SummaryCard(title = "Período de análise", modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    OutlinedTextField(
-                        value = startText,
-                        onValueChange = { startText = it },
-                        label = { Text("Início (yyyy-MM-dd)") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = endText,
-                        onValueChange = { endText = it },
-                        label = { Text("Fim (yyyy-MM-dd)") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    Button(
-                        onClick = {
-                            val start = runCatching { LocalDate.parse(startText) }.getOrNull()
-                            val end = runCatching { LocalDate.parse(endText) }.getOrNull()
-                            if (start != null && end != null) range = start..end
-                        }
-                    ) { Text("Aplicar filtro") }
+                Text(
+                    text = "Mostrando de ${range.start.format(dateFormatter)} até ${range.endInclusive.format(dateFormatter)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedButton(onClick = { showPicker = true }) {
+                        Text("Escolher no calendário")
+                    }
+                    TextButton(onClick = { range = today..defaultEnd }) {
+                        Text("Usar padrão")
+                    }
                 }
             }
         }
         item { InsightsSection(insights) }
         if (history.isNotEmpty()) {
-            item { Text("Faixa diária", style = MaterialTheme.typography.titleMedium) }
-            item { BandChart(history.map { it.date to (it.checking + it.caixinhaTotal) }) }
-            item { Text("Variação diária", style = MaterialTheme.typography.titleMedium) }
-            item { LineChart(history.map { it.date to (it.checking + it.caixinhaTotal) }) }
+            item { Text("Faixas por conta", style = MaterialTheme.typography.titleMedium) }
+            item { AccountBandsChart(history) }
+            item { Text("Variação percentual", style = MaterialTheme.typography.titleMedium) }
+            item { VariationSection(history) }
+        }
+    }
+    if (showPicker) {
+        DatePickerDialog(
+            onDismissRequest = { showPicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val start = dateRangeState.selectedStartDateMillis?.toLocalDate()
+                        val end = dateRangeState.selectedEndDateMillis?.toLocalDate()
+                        if (start != null && end != null && !end.isBefore(start)) {
+                            range = start..end
+                            showPicker = false
+                        }
+                    }
+                ) { Text("Aplicar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPicker = false }) { Text("Cancelar") }
+            }
+        ) {
+            DateRangePicker(
+                state = dateRangeState,
+                title = { Text("Selecione o período") }
+            )
         }
     }
 }
@@ -1060,61 +1079,170 @@ private fun InsightsSection(insights: List<DashboardInsight>) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         insights.forEach { insight ->
             val diff = insight.endValue - insight.startValue
-            val positive = diff >= 0
+            val percent = if (insight.startValue != 0.0) (diff / insight.startValue) * 100 else 0.0
+            val positive = percent >= 0
             val color = if (positive) Color(0xFF10B981) else MaterialTheme.colorScheme.error
-            SummaryCard(title = insight.label) {
+            SummaryCard(
+                title = insight.label,
+                value = insight.endValue,
+                highlightNegative = insight.endValue < 0
+            ) {
+                Text(
+                    text = String.format(Locale("pt", "BR"), "%.1f%%", percent),
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = color,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
                 Text("Início: ${currencyFormat.format(insight.startValue)}")
-                Text("Fim: ${currencyFormat.format(insight.endValue)}", fontWeight = FontWeight.Bold)
-                Text("Variação: ${currencyFormat.format(diff)}", color = color)
+                Text("Saldo final: ${currencyFormat.format(insight.endValue)}", fontWeight = FontWeight.Bold)
             }
         }
     }
 }
 
 @Composable
-private fun BandChart(data: List<Pair<LocalDate, Double>>) {
-    if (data.isEmpty()) return
-    val max = data.maxOf { it.second }
-    val min = data.minOf { it.second }
+private fun AccountBandsChart(history: List<BalanceSnapshot>) {
+    if (history.isEmpty()) return
+    val orderedHistory = history.sortedBy { it.date }
+    val checkingData = orderedHistory.map { it.date to it.checking }
+    val caixinhaData = orderedHistory.map { it.date to it.caixinhaTotal }
+    val max = maxOf(checkingData.maxOf { it.second }, caixinhaData.maxOf { it.second })
+    val min = minOf(checkingData.minOf { it.second }, caixinhaData.minOf { it.second })
     val span = (max - min).takeIf { it != 0.0 } ?: 1.0
-    val pointColor = MaterialTheme.colorScheme.primary
+    val checkingColor = MaterialTheme.colorScheme.primary
+    val caixinhaColor = MaterialTheme.colorScheme.tertiary
     Card(modifier = Modifier.fillMaxWidth()) {
-        Canvas(modifier = Modifier.height(140.dp)) {
-            val widthStep = size.width / (data.size - 1).coerceAtLeast(1)
-            data.forEachIndexed { index, pair ->
-                val x = widthStep * index
-                val normalized = ((pair.second - min) / span).toFloat()
-                val y = size.height - (normalized * size.height)
-                drawCircle(color = pointColor, radius = 6f, center = androidx.compose.ui.geometry.Offset(x, y))
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                LegendDot(color = checkingColor, label = "Conta Corrente")
+                LegendDot(color = caixinhaColor, label = "Caixinhas Total")
             }
-        }
-    }
-}
+            Canvas(modifier = Modifier.fillMaxWidth().height(180.dp)) {
+                val widthStep = size.width / (orderedHistory.size - 1).coerceAtLeast(1)
+                fun yFor(value: Double): Float = size.height - (((value - min) / span).toFloat() * size.height)
 
-@Composable
-private fun LineChart(data: List<Pair<LocalDate, Double>>) {
-    if (data.isEmpty()) return
-    val max = data.maxOf { it.second }
-    val min = data.minOf { it.second }
-    val span = (max - min).takeIf { it != 0.0 } ?: 1.0
-    val lineColor = MaterialTheme.colorScheme.secondary
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Canvas(modifier = Modifier.height(140.dp)) {
-            val widthStep = size.width / (data.size - 1).coerceAtLeast(1)
-            var lastPoint: androidx.compose.ui.geometry.Offset? = null
-            data.forEachIndexed { index, pair ->
-                val x = widthStep * index
-                val normalized = ((pair.second - min) / span).toFloat()
-                val y = size.height - (normalized * size.height)
-                val point = androidx.compose.ui.geometry.Offset(x, y)
-                lastPoint?.let { previous ->
-                    drawLine(color = lineColor, start = previous, end = point, strokeWidth = 6f)
+                fun drawSeries(data: List<Pair<LocalDate, Double>>, color: Color) {
+                    var lastPoint: androidx.compose.ui.geometry.Offset? = null
+                    data.forEachIndexed { index, pair ->
+                        val x = widthStep * index
+                        val y = yFor(pair.second)
+                        val point = androidx.compose.ui.geometry.Offset(x, y)
+                        lastPoint?.let { previous ->
+                            drawLine(color = color.copy(alpha = 0.7f), start = previous, end = point, strokeWidth = 6f)
+                        }
+                        drawCircle(color = color, radius = 6f, center = point)
+                        lastPoint = point
+                    }
                 }
-                lastPoint = point
+
+                drawSeries(checkingData, checkingColor)
+                drawSeries(caixinhaData, caixinhaColor)
+            }
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(checkingData.first().first.format(dateFormatter), style = MaterialTheme.typography.labelSmall)
+                Text(checkingData.last().first.format(dateFormatter), style = MaterialTheme.typography.labelSmall)
             }
         }
     }
 }
+
+@Composable
+private fun VariationSection(history: List<BalanceSnapshot>) {
+    val ordered = history.sortedBy { it.date }
+    val checkingPoints = variationPoints(ordered) { it.checking }
+    val caixinhaPoints = variationPoints(ordered) { it.caixinhaTotal }
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        VariationChart(title = "Conta Corrente", points = checkingPoints, baseColor = MaterialTheme.colorScheme.primary)
+        VariationChart(title = "Caixinhas Total", points = caixinhaPoints, baseColor = MaterialTheme.colorScheme.tertiary)
+    }
+}
+
+@Composable
+private fun VariationChart(title: String, points: List<VariationPoint>, baseColor: Color) {
+    if (points.isEmpty()) return
+    val maxValue = points.maxOf { max(it.vsInitial, it.vsPrevious) }
+    val minValue = points.minOf { min(it.vsInitial, it.vsPrevious) }
+    val scale = max(abs(maxValue), abs(minValue)).takeIf { it != 0.0 } ?: 1.0
+    val vsInitialColor = baseColor
+    val vsPreviousColor = MaterialTheme.colorScheme.secondary
+    val neutralLineColor = MaterialTheme.colorScheme.outlineVariant
+    val dateLabels = points.map { it.date.format(dateFormatter) }
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                LegendDot(color = vsInitialColor, label = "Vs início")
+                LegendDot(color = vsPreviousColor, label = "Vs dia anterior")
+            }
+            Canvas(modifier = Modifier.fillMaxWidth().height(200.dp)) {
+                val widthStep = size.width / (points.size - 1).coerceAtLeast(1)
+                val centerY = size.height / 2f
+                drawLine(
+                    color = neutralLineColor,
+                    start = androidx.compose.ui.geometry.Offset(0f, centerY),
+                    end = androidx.compose.ui.geometry.Offset(size.width, centerY),
+                    strokeWidth = 2f
+                )
+
+                fun yFor(value: Double): Float = centerY - ((value / scale).toFloat() * centerY)
+
+                fun drawSeries(values: List<Double>, color: Color) {
+                    var lastPoint: androidx.compose.ui.geometry.Offset? = null
+                    values.forEachIndexed { index, value ->
+                        val x = widthStep * index
+                        val y = yFor(value)
+                        val point = androidx.compose.ui.geometry.Offset(x, y)
+                        lastPoint?.let { previous ->
+                            drawLine(color = color.copy(alpha = 0.7f), start = previous, end = point, strokeWidth = 5f)
+                        }
+                        drawCircle(color = color, radius = 6f, center = point)
+                        lastPoint = point
+                    }
+                }
+
+                drawSeries(points.map { it.vsInitial }, vsInitialColor)
+                drawSeries(points.map { it.vsPrevious }, vsPreviousColor)
+            }
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(dateLabels.first(), style = MaterialTheme.typography.labelSmall)
+                Text(dateLabels.last(), style = MaterialTheme.typography.labelSmall)
+            }
+        }
+    }
+}
+
+@Composable
+private fun LegendDot(color: Color, label: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Box(modifier = Modifier.size(12.dp).background(color, shape = RoundedCornerShape(50)))
+        Text(label, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+private fun variationPoints(
+    history: List<BalanceSnapshot>,
+    selector: (BalanceSnapshot) -> Double
+): List<VariationPoint> {
+    if (history.isEmpty()) return emptyList()
+    val startValue = selector(history.first())
+    return history.mapIndexed { index, snapshot ->
+        val current = selector(snapshot)
+        val previous = if (index == 0) current else selector(history[index - 1])
+        VariationPoint(
+            date = snapshot.date,
+            vsInitial = percentageChange(current, startValue),
+            vsPrevious = if (index == 0) 0.0 else percentageChange(current, previous)
+        )
+    }
+}
+
+private fun percentageChange(current: Double, base: Double): Double =
+    if (base == 0.0) 0.0 else ((current - base) / base) * 100
+
+private data class VariationPoint(val date: LocalDate, val vsInitial: Double, val vsPrevious: Double)
 
 private data class SourceOption(val source: AccountSource, val label: String)
 
